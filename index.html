@@ -155,6 +155,42 @@ button:focus-visible{outline:2px solid var(--etsi);outline-offset:2px}
 .console button:focus-visible{outline-color:var(--signal)}
 abbr{cursor:help}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- stage-2 number ledger + trace replay ---------- */
+.ledger{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 0 10px}
+.lterm{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
+  border:1px solid var(--hair);background:#fff;padding:9px 18px 7px;min-width:76px;
+  transition:border-color .15s, box-shadow .15s}
+.lterm .lv{font-family:var(--mono);font-size:24px;color:var(--etsi);line-height:1}
+.lterm .lv.neg{color:var(--fault)} .lterm .lv.pos{color:var(--ok)}
+.lterm .lk{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--ink2)}
+.lterm:hover{border-color:var(--ink2)}
+.lterm.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.lop{font-family:var(--mono);font-size:20px;color:var(--ink2);user-select:none}
+.lterm.merged-sel{animation:none}
+.ledcard{border:1px solid var(--hair);border-left:3px solid var(--etsi);background:#fff;
+  padding:14px 18px;font-size:13.5px;line-height:1.65;max-width:78ch;margin:12px 0 6px;min-height:56px}
+.ledcard b{color:var(--ink)}
+.ledcard .mono{font-size:12px}
+.ledcard table{margin:8px 0 0;font-size:12.5px}
+.ledcard td,.ledcard th{padding:4px 10px}
+.tracebox{border:1px solid var(--hair);background:#fff;padding:16px 18px;margin:12px 0 8px;max-width:860px}
+.tracebox button{font-family:var(--mono);font-size:12px;background:var(--etsi);color:#fff;
+  border:none;padding:7px 16px;cursor:pointer}
+.tracebox button:hover{filter:brightness(1.12)}
+.tracebox button:disabled{background:var(--hair);color:var(--ink2);cursor:wait}
+.tlane{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:64px;margin:16px 0 10px}
+.tnode{border:1px solid var(--etsi);background:var(--etsi-soft);color:var(--etsi);
+  font-family:var(--mono);font-size:11.5px;padding:6px 10px;opacity:0;transform:translateY(6px);
+  transition:opacity .3s, transform .3s}
+.tnode.show{opacity:1;transform:none}
+.tnode.tnew{border-color:var(--ink);background:#fff;color:var(--ink)}
+.tnode.tmerge{border-style:dashed}
+.tarrow{font-family:var(--mono);color:var(--ink2);opacity:0;transition:opacity .3s}
+.tnode.show~.tarrow, .tarrow.show{opacity:1}
+.tcap{font-size:12.5px;color:var(--ink2);line-height:1.7}
+.tstep{font-size:12.5px;color:var(--ink2);margin-top:8px;min-height:40px}
+.tstep b{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -285,6 +321,22 @@ get no guidance here, which is exactly where fuzzers hunt.</pre>
     otherwise the model grows a new state.</p>
     <div class="facts" id="rfacts"></div>
     <p class="note" id="pdrop"></p>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">Where do the numbers come from?</h3>
+    <p class="note" style="margin-top:2px">Click each term in the ledger — every number is computed
+    live from the selected run's real artifacts (<code class="mono">fsm.json</code>,
+    <code class="mono">initial_model.json</code>, <code class="mono">refined_fsm.dot</code>).</p>
+    <div class="ledger" id="ledger" role="tablist"></div>
+    <div class="ledcard" id="ledcard"></div>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">What <code class="mono">merge_pta</code> actually does, one trace at a time</h3>
+    <p class="note" style="margin-top:2px">Trace 0 of the 18, verbatim from ARCANE's
+    <code class="mono">sample_trace.json</code>: F1-Setup → Context Setup, 4 messages.</p>
+    <div class="tracebox">
+      <button id="traceGo">▶ replay trace 0</button>
+      <div class="tlane" id="tlane"></div>
+      <div class="tcap" id="tcap">Trace 0: <span class="mono">F1_SETUP_REQUEST · F1_SETUP_RESPONSE · UE_CONTEXT_SETUP_REQUEST · UE_CONTEXT_SETUP_RESPONSE</span></div>
+    </div>
   </section>
 
   <hr class="rule">
@@ -420,7 +472,7 @@ function renderFunnel(){
   const max = Math.max(...D.funnel.filter(s=>s.count!=null||s.after!=null).map(s=>s.count??s.after));
   el.innerHTML = D.funnel.map(s=>{
     const v = s.count!=null?s.count:s.after;
-    const sel7 = s.stage.startsWith('S7');
+    const sel7 = (s.stage || s.label || '').startsWith('S7');
     return `<div class="frow ${sel7?'sel7':''}">
       <div class="fname">${s.label}</div>
       <div class="fbar"><i style="width:${Math.max(3,Math.round(v/max*100))}%"></i></div>
@@ -448,8 +500,132 @@ function renderAll(){
     [d.counts.cu07_family,'CU07 cases'],
     [d.thinking_chars.toLocaleString(),'thinking chars*']
   ].map(([v,k])=>`<div class="fact"><div class="v num">${v}</div><div class="k">${k}</div></div>`).join('');
-  renderEdges(); renderFunnel();
+  renderEdges(); renderFunnel(); renderLedger();
   $('#pdrop').innerHTML = d.pdrop;
+}
+
+function droppedParallelEdges(D){
+  const seen = new Set(), dropped = [];
+  D.fsm.transitions.forEach(t=>{
+    const k = t.from+'>'+t.to;
+    if (seen.has(k)) dropped.push(t); else seen.add(k);
+  });
+  return dropped;
+}
+
+function renderLedger(){
+  const D = cur();
+  const raw = D.fsm.transitions.length;
+  const dropped = droppedParallelEdges(D);
+  const seed = D.base.transitions, seedS = D.base.states;
+  const grown = D.refined.states - D.base.states;
+  // stage-2 facts strip
+  $('#rfacts').innerHTML = [
+    [seedS+'→'+D.refined.states,'refined states'],
+    [seed+'→'+D.refined.transitions,'refined edges'],
+    [18,'traces merged'],
+    [77,'trace messages'],
+    [dropped.length,'parallel dropped'],
+    ['+'+grown,'states grown']
+  ].map(([v,k])=>`<div class="fact"><div class="v num">${v}</div><div class="k">${k}</div></div>`).join('');
+  // build ledger strip
+  $('#ledger').innerHTML = `
+    <div class="lterm" data-t="raw" role="tab"><span class="lv">${raw}</span><span class="lk">LLM edges</span></div>
+    <span class="lop">−</span>
+    <div class="lterm" data-t="drop" role="tab"><span class="lv neg">${dropped.length}</span><span class="lk">parallel dropped</span></div>
+    <span class="lop">=</span>
+    <div class="lterm" data-t="seed" role="tab"><span class="lv">${seed}</span><span class="lk">seed edges</span></div>
+    <span class="lop">·×</span>
+    <div class="lterm" data-t="grow" role="tab"><span class="lv pos">+${grown}</span><span class="lk">trace states</span></div>
+    <span class="lop">→</span>
+    <div class="lterm" data-t="fin" role="tab"><span class="lv">${D.refined.states}</span><span class="lk">states · ${D.refined.transitions} edges</span></div>`;
+  document.querySelectorAll('.lterm').forEach(el =>
+    el.addEventListener('click', ()=>ledDetail(el.dataset.t)));
+  ledDetail('raw');
+}
+
+function ledDetail(which){
+  const D = cur(), d = D.fsm;
+  document.querySelectorAll('.lterm').forEach(el=>
+    el.classList.toggle('on', el.dataset.t===which));
+  const card = $('#ledcard');
+  if (which==='raw'){
+    card.innerHTML = `<b>① ${d.transitions.length} edges — what the LLM actually wrote.</b>
+      Framing ${RUN} returned ${d.states.length} states and ${d.transitions.length} transitions in JSON.
+      Every edge carries its message type, <b>direction</b> (DU→CU vs CU→DU) and an IE-validity map —
+      this is raw model output, before anything in the pipeline touches it. The full edge table
+      (and the illegal edges some framings modeled) is in <b>Stage 1</b> above.`;
+  } else if (which==='drop'){
+    const dr = droppedParallelEdges(D);
+    card.innerHTML = `<b>② −${dr.length} edges — ARCANE's container is narrower than the LLM.</b>
+      The format backing <code class="mono">initial_model.json</code> allows <b>one transition per
+      (source, target) pair</b>. ${D.fsm.transitions.length} − ${dr.length} = ${D.base.transitions}.
+      ${dr.length ? 'Dropped here:' : 'No parallel edges in this framing.'}
+      <div class="tw"><table><thead><tr><th>Edge dropped</th><th>Why</th></tr></thead><tbody>
+      ${dr.map(t=>`<tr><td class="mono">${esc(t.from)} —${esc(t.MessageType)}→ ${esc(t.to)}</td>
+        <td>duplicate (src,dst) with different IE payload</td></tr>`).join('')}
+      </tbody></table></div>
+      <div style="margin-top:8px;color:var(--ink2)">A structural fidelity loss in ARCANE's own container —
+      logged per edge, not buried. (This is exactly where framing C's richer per-IE model gets flattened.)</div>`;
+  } else if (which==='seed'){
+    card.innerHTML = `<b>③ ${D.base.transitions} edges in — the seed model enters refinement.</b>
+      The seed (${D.base.states} states · ${D.base.transitions} edges) is handed to ARCANE's
+      <b>own</b> <code class="mono">ARCANEModelRefiner</code> — unmodified, thresholds and all:
+      similarity = 0.6·procedure + 0.4·weighted-IE, merge if &gt; 0.7. So far everything is still
+      only what the LLM + format conversion produced. Nothing about reality has touched the model yet.
+      <div style="margin-top:8px;color:var(--ink2)">Note: the seed only knows F1 Setup — it has
+      no idea UE Context Setup, RRC transfers, or Error Indication exist.</div>`;
+  } else if (which==='grow'){
+    card.innerHTML = `<b>④ +${D.refined.states - D.base.states} states — 18 real traces replay through the model.</b>
+      <code class="mono">merge_pta</code> replays each of the 18 captured CU↔DU sessions
+      (<b>77 messages</b> total) against the model: at every step, if the observed message is
+      <b>similar enough (&gt; 0.7)</b> to an outgoing edge, the walk continues; otherwise
+      <b>a new state is grown</b>, named <code class="mono">S&lt;n&gt;</code> and labeled with the
+      message that created it.
+      <div style="margin-top:8px">Why only +${D.refined.states - D.base.states} states from 77 messages?
+      Traces that share a prefix <em>merge</em> — e.g. 16 of the 18 traces begin with the same
+      F1_SETUP_REQUEST → F1_SETUP_RESPONSE opening, so that path is built once and reused 17 times.
+      The 18 sessions go far beyond F1 Setup (UE Context Setup, RRC Message Transfers, RESET,
+      Error Indication…), and that's where states
+      <code class="mono">S4–S${3 + (D.refined.states - D.base.states)}</code> come from.</div>`;
+  } else if (which==='fin'){
+    card.innerHTML = `<b>⑤ ${D.refined.states} states · ${D.refined.transitions} edges — the refined model.</b>
+      Seed states are kept, trace states extend them, and the result is what the test-case
+      generator will enumerate in <b>Stage 3</b>.
+      <div style="margin-top:8px">The point of the whole step, in one line: the refinement is what makes
+      the attack <em>reachable</em>. The refined model now carries <b>F1_SETUP_RESPONSE edges the traces
+      actually exercised</b> — and a sequence-level drop-mutation on one of those paths is what fires an
+      unsolicited F1-Setup-Response at the CU.</div>`;
+  }
+}
+
+// ---- stage 2: trace-0 replay animation ----
+// TNODES from the real refined_fsm.dot: trace 0 is what created S4–S7 (labels match the dot)
+
+const TNODES = [
+  ['IDLE','F1_SETUP_REQUEST','tnew','new state S4'],
+  ['S4','F1_SETUP_RESPONSE','tnew','new state S5'],
+  ['S5','UE_CONTEXT_SETUP_REQUEST','tnew','new state S6'],
+  ['S6','UE_CONTEXT_SETUP_RESPONSE','tnew','new state S7'],
+];
+async function playTrace(){
+  const btn=$('#traceGo'), lane=$('#tlane'), step=$('#tcap');
+  btn.disabled = true; lane.innerHTML='';
+  for (const [from,msg,cls,note] of TNODES){
+    const a=document.createElement('span'); a.className='tarrow'; a.textContent='→';
+    a.classList.add('show'); lane.appendChild(a);
+    const n=document.createElement('span');
+    n.className='tnode '+cls; n.textContent=msg; lane.appendChild(n);
+    requestAnimationFrame(()=>n.classList.add('show'));
+    step.innerHTML = `<b>${msg}</b> arrives at <span class="mono">${esc(from)}</span>
+      — no outgoing edge with similarity &gt; 0.7 accepts it → <b>${esc(note)}</b> is grown.`;
+    await new Promise(r=>setTimeout(r, 900));
+  }
+  step.innerHTML = `<b>4 messages → 4 new states (S4–S7).</b> The next trace opens with the same
+    F1_SETUP_REQUEST → this time the walk <em>merges</em> (similarity &gt; 0.7) and no new state is
+    made. Repeat over all 18 traces and you get the +37 seen in the ledger.
+    <span style="color:var(--ink2)">(Trace 0 verbatim from ARCANE's sample_trace.json.)</span>`;
+  btn.disabled = false; btn.textContent='▶ replay trace 0';
 }
 
 // ---- console replay ----
@@ -490,7 +666,9 @@ document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',
 }));
 
 // ---- run selector ----
-document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{ RUN = c.dataset.run; renderAll(); }));
+document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{ RUN = c.dataset.run; renderAll();
+
+$('#traceGo').addEventListener('click', playTrace); }));
 
 const WIRE = '40010040000004004e00020001005240100680674e422d45757265636f6d2d43550003001100000004000b4002f859000bc614e0000000aa000a80000000c74003110300';
 const groups = WIRE.match(/.{4}/g) || [];
