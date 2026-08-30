@@ -192,6 +192,19 @@ abbr{cursor:help}
 .tstep{font-size:12.5px;color:var(--ink2);margin-top:8px;min-height:40px}
 .tstep b{color:var(--ink)}
 
+/* ---------- stage-0 anatomy strip ---------- */
+.anat{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--hair);background:#fff;margin:24px 0 0}
+@media(max-width:820px){.anat{grid-template-columns:1fr}}
+.acell{padding:15px 18px;border-right:1px solid var(--hair)}
+.acell:last-child{border-right:none}
+@media(max-width:820px){.acell{border-right:none;border-bottom:1px dashed var(--hair)}.acell:last-child{border-bottom:none}}
+.alab{font-family:var(--mono);font-size:11px;letter-spacing:.6px;text-transform:uppercase;
+  color:var(--ink);display:flex;align-items:flex-start;gap:8px}
+.alab .dot{margin-top:3px}
+.atxt{font-size:13px;line-height:1.62;color:var(--ink2);margin-top:7px}
+.atxt b{color:var(--ink)}
+.atxt .mono{font-size:11.5px}
+
 /* ---------- stage-0 expected/actual table ---------- */
 .eabox{border:1px solid var(--hair);background:#fff;margin-top:20px}
 .earow{display:grid;grid-template-columns:215px 1fr}
@@ -231,10 +244,32 @@ abbr{cursor:help}
   <section class="stage" id="s0">
     <div class="eyebrow"><span class="n">STAGE 0</span><span class="t">The bug &amp; the spec</span></div>
     <h2>One message the spec forbids</h2>
-    <p class="lede">Bug <b>CU07</b> (ARCANE test suite): <em>"gNB-CU crashes when receiving F1AP Setup
-    Response."</em> A fake gNB-DU sends a CU an F1-Setup-Response it never requested. The spec pins this
-    message to one direction only — the invariant every model in this pipeline encodes:</p>
+    <p class="lede">Bug <b>CU07</b> — in ARCANE's Exp3 suite, verbatim: <em>"gNB-CU crashes when
+    receiving F1AP Setup Response"</em> (<code class="mono">test_runner.py:633</code>). The attack is
+    exactly one message: a peer connects to the CU's F1-C port and sends a <b>captured,
+    perfectly-formed F1-Setup-Response</b> — with no Setup-Request ever sent. Three facts make
+    this a real bug rather than a rough edge:</p>
 
+    <div class="anat" role="group" aria-label="anatomy of the CU07 crash">
+      <div class="acell">
+        <div class="alab"><i class="dot okd"></i>The message — format valid</div>
+        <div class="atxt">Re-encoded from a real capture: 68 bytes that decode cleanly as
+        <span class="mono">F1-Setup-Response · gNB-Eurecom-CU · RRC 17.3.0</span>. Nothing in the
+        payload is malformed.</div>
+      </div>
+      <div class="acell">
+        <div class="alab"><i class="dot fld"></i>The moment — forbidden</div>
+        <div class="atxt">It arrives as the <b>first and only</b> message of the association. No
+        Setup-Request precedes it — a session the spec can describe cannot contain it
+        (§8.2.3.1, §9.2.1.5 below).</div>
+      </div>
+      <div class="acell">
+        <div class="alab"><i class="dot fld"></i>The result — process death</div>
+        <div class="atxt">Not a rejected connection, not a dropped packet — the CU's whole
+        <span class="mono">nr-softmodem</span> process exits: <span class="mono">139 = 128 + 11 =
+        SIGSEGV</span>. Restart required; every served session lost.</div>
+      </div>
+    </div>
     <div class="tabs" role="tablist" aria-label="spec excerpts">
       <button role="tab" aria-selected="true" data-tab="t1">§8.2.3.1 General</button>
       <button role="tab" aria-selected="false" data-tab="t2">§9.2.1.5 F1 SETUP RESPONSE</button>
@@ -277,9 +312,11 @@ get no guidance here, which is exactly where fuzzers hunt.</pre>
         <div class="ealab"><i class="dot okd"></i>Expected — what the spec demands</div>
         <div class="eatxt">An F1-Setup-Response with <b>no Request outstanding</b> cannot exist in
         an honest session: F1 Setup is initiated <em>by the DU</em> (§8.2.3.1) and the Response is
-        defined <em>CU → DU only</em> (§9.2.1.5). A compliant CU discards it, optionally answers
-        with an <code class="mono">Error&nbsp;Indication</code> — and keeps running. One malformed
-        message must never cost more than one association.</div>
+        defined <em>CU → DU only</em> (§9.2.1.5). A compliant CU discards it or answers with
+        <span class="mono">F1-Setup-Failure</span> — which is precisely what ARCANE's harness
+        expects to receive (<code class="mono">unsuccessfulOutcome, id-F1Setup</code>,
+        <code class="mono">test_runner.py:641</code>). Either way the CU <b>keeps running</b>;
+        one unsolicited message costs one association, never a process.</div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot fld"></i>Actual — recorded 2026-08-28</div>
