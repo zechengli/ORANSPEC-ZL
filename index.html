@@ -192,22 +192,22 @@ abbr{cursor:help}
 .tstep{font-size:12.5px;color:var(--ink2);margin-top:8px;min-height:40px}
 .tstep b{color:var(--ink)}
 
-/* ---------- stage-0 expected/actual bug box ---------- */
-.bugbox{display:grid;grid-template-columns:1fr 1.35fr;gap:14px;margin:22px 0 0}
-@media(max-width:760px){.bugbox{grid-template-columns:1fr}}
-.bugbox .bcol{border:1px solid var(--hair);background:#fff;padding:16px 18px}
-.bugbox .bexp{border-left:3px solid var(--ok)}
-.bugbox .bact{border-left:3px solid var(--fault)}
-.bugbox h5{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;
-  margin-bottom:8px}
-.bugbox .bexp h5{color:var(--ok)} .bugbox .bact h5{color:var(--fault)}
-.bugbox .icn{font-family:var(--mono);font-size:11px;border:1px solid currentColor;
-  padding:0 6px;line-height:1.5}
-.bugbox p{font-size:13.5px;line-height:1.65;color:var(--ink2)}
-.bugbox p b{color:var(--ink)}
-.bugbox pre{font-family:var(--mono);font-size:12px;line-height:1.8;background:var(--console);
-  color:var(--console-ink);padding:12px 16px;overflow-x:auto;margin:0 0 10px;white-space:pre}
-.bugbox .mono{font-family:var(--mono);font-size:12.5px}
+/* ---------- stage-0 expected/actual table ---------- */
+.eabox{border:1px solid var(--hair);background:#fff;margin-top:20px}
+.earow{display:grid;grid-template-columns:215px 1fr}
+.earow+.earow{border-top:1px solid var(--hair)}
+@media(max-width:760px){.earow{grid-template-columns:1fr}.earow+.earow .ealab{border-bottom:none;border-top:1px dashed var(--hair)}}
+.ealab{font-family:var(--mono);font-size:11px;letter-spacing:.6px;text-transform:uppercase;
+  color:var(--ink2);padding:16px 18px;border-right:1px solid var(--hair);display:flex;
+  align-items:flex-start;gap:8px}
+@media(max-width:760px){.ealab{border-right:none}}
+.eatxt{padding:16px 20px;font-size:13.5px;line-height:1.65;color:var(--ink2)}
+.eatxt b{color:var(--ink)}
+.eatxt pre.log{font-family:var(--mono);font-size:12px;line-height:1.8;background:var(--paper);
+  border:1px solid var(--hair);color:var(--ink);padding:10px 14px;overflow-x:auto;
+  margin:0 0 10px;white-space:pre}
+.dot{display:inline-block;width:7px;height:7px;margin-top:4px;flex:none}
+.dot.okd{background:var(--ok)} .dot.fld{background:var(--fault)}
 
 </style>
 </head>
@@ -268,37 +268,32 @@ get no guidance here, which is exactly where fuzzers hunt.</pre>
     INITIATING MESSAGE       F1SetupRequest      <span class="c">-- DU → CU</span>
     SUCCESSFUL OUTCOME       F1SetupResponse     <span class="c">-- CU → DU</span>
     UNSUCCESSFUL OUTCOME     F1SetupFailure      <span class="c">-- CU → DU</span>
-    <pre class="asn" id="t4" hidden><span class="c">-- TS 38.473 v16.3.1 (the ASN.1 the target CU was compiled against)</span>
-<span class="k">f1Setup</span> F1AP-ELEMENTARY-PROCEDURE ::= {
-    INITIATING MESSAGE       F1SetupRequest      <span class="c">-- DU → CU</span>
-    SUCCESSFUL OUTCOME       F1SetupResponse     <span class="c">-- CU → DU</span>
-    UNSUCCESSFUL OUTCOME     F1SetupFailure      <span class="c">-- CU → DU</span>
     PROCEDURE CODE           id-F1Setup
     CRITICALITY              reject
 }</pre>
 
-    <div class="bugbox">
-      <div class="bcol bexp">
-        <h5><span class="icn">✓</span> Expected result — what the spec demands</h5>
-        <p>An F1-Setup-Response arriving with <b>no Request outstanding</b> is unsolicited:
-        F1 Setup is initiated <em>by the DU</em> (§8.2.3.1), and the Response is defined
-        <em>CU → DU only</em> (§9.2.1.5). A compliant CU discards it, optionally answers with
-        an <span class="mono">Error&nbsp;Indication</span> — and keeps running. One malformed
-        message must never cost more than one association.</p>
+    <div class="eabox">
+      <div class="earow">
+        <div class="ealab"><i class="dot okd"></i>Expected — what the spec demands</div>
+        <div class="eatxt">An F1-Setup-Response with <b>no Request outstanding</b> cannot exist in
+        an honest session: F1 Setup is initiated <em>by the DU</em> (§8.2.3.1) and the Response is
+        defined <em>CU → DU only</em> (§9.2.1.5). A compliant CU discards it, optionally answers
+        with an <code class="mono">Error&nbsp;Indication</code> — and keeps running. One malformed
+        message must never cost more than one association.</div>
       </div>
-      <div class="bcol bact">
-        <h5><span class="icn">✕</span> Actual result — what OAI's CU does (recorded 2026-08-28)</h5>
-        <pre>[MAC]   received F1 Setup Response from CU gNB-Eurecom-CU
+      <div class="earow">
+        <div class="ealab"><i class="dot fld"></i>Actual — recorded 2026-08-28</div>
+        <div class="eatxt">
+<pre class="log">[MAC]   received F1 Setup Response from CU gNB-Eurecom-CU
 [MAC]   CU uses RRC version 17.3.0
 (process dies — no further output)
 [monitor] SOFTMODEM_EXIT=139   →  128 + 11 = SIGSEGV</pre>
-        <p>The handler walks a code path reachable only after a completed Setup, dereferences
-        context that was never created, and the <b>whole CU process dies</b> — every DU and UE
-        it serves drops. 68 bytes the spec structurally forbids take down a cell site's
-        control plane.</p>
+The handler takes a code path reachable only after a completed Setup, dereferences context
+that was never created — and the <b>whole CU process dies</b>, dropping every DU and UE it
+serves. 68 bytes the spec structurally forbids take down a cell site's control plane.</div>
       </div>
     </div>
-
+  </section>
   <hr class="rule">
 
   <!-- ================ 1 THE LLM ================ -->
