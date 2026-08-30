@@ -290,30 +290,6 @@ get no guidance here, which is exactly where fuzzers hunt.</pre>
     PROCEDURE CODE           id-F1Setup
     CRITICALITY              reject
 }</pre>
-
-    <div class="eabox">
-      <div class="earow">
-        <div class="ealab"><i class="dot okd"></i>Expected — what the spec demands</div>
-        <div class="eatxt">An F1-Setup-Response with <b>no Request outstanding</b> cannot exist in
-        an honest session: F1 Setup is initiated <em>by the DU</em> (§8.2.3.1) and the Response is
-        defined <em>CU → DU only</em> (§9.2.1.5). A compliant CU discards it or answers with
-        <span class="mono">F1-Setup-Failure</span> — which is precisely what ARCANE's harness
-        expects to receive (<code class="mono">unsuccessfulOutcome, id-F1Setup</code>,
-        <code class="mono">test_runner.py:641</code>). Either way the CU <b>keeps running</b>;
-        one unsolicited message costs one association, never a process.</div>
-      </div>
-      <div class="earow">
-        <div class="ealab"><i class="dot fld"></i>Actual — recorded 2026-08-28</div>
-        <div class="eatxt">
-<pre class="log">[MAC]   received F1 Setup Response from CU gNB-Eurecom-CU
-[MAC]   CU uses RRC version 17.3.0
-(process dies — no further output)
-[monitor] SOFTMODEM_EXIT=139   →  128 + 11 = SIGSEGV</pre>
-The handler takes a code path reachable only after a completed Setup, dereferences context
-that was never created — and the <b>whole CU process dies</b>, dropping every DU and UE it
-serves. 68 bytes the spec structurally forbids take down a cell site's control plane.</div>
-      </div>
-    </div>
   </section>
   <hr class="rule">
 
