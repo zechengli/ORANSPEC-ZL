@@ -235,23 +235,13 @@ abbr{cursor:help}
   <!-- ================ PLAIN-ENGLISH STORY ================ -->
   <section class="story" aria-label="plain-English walkthrough">
     <button class="story-toggle" id="storyBtn" aria-expanded="false" aria-controls="storyGrid">
-      📖 Never seen a cell-network protocol? Read the plain story first — 6 short chapters.
+      📖 The pipeline in plain English — 5 short chapters.
       <span class="arw">▸</span>
     </button>
     <div class="story-grid" id="storyGrid" hidden>
 
       <div class="ch">
-        <h4><span class="n">CH 1</span>A rulebook and two machines</h4>
-        <p>A 5G tower has a "brain" (the <code>gNB-CU</code>, in a data center) and "limbs" (the
-        <code>gNB-DU</code>, at the tower). They chat constantly over a protocol called F1AP, and a
-        ~700-page 3GPP document (<code>TS 38.473</code>) is the rulebook for that conversation.
-        ARCANE's question: <em>reading only the rulebook, can you find a way to break a real brain?</em>
-        This page answers yes.</p>
-        <a class="go" href="#s0">see the rulebook ↓</a>
-      </div>
-
-      <div class="ch">
-        <h4><span class="n">CH 2</span>Ask an LLM to draw the map</h4>
+        <h4><span class="n">CH 1</span>Ask an LLM to draw the map</h4>
         <p>700 pages is too much to hand-draw, so we hand the extracts to a language model and ask
         for a <em>map of the conversation</em> — states like game levels ("nothing set up yet",
         "waiting for a reply") and arrows for each message. Same model, asked in three different
@@ -261,7 +251,7 @@ abbr{cursor:help}
       </div>
 
       <div class="ch">
-        <h4><span class="n">CH 3</span>Check the map against reality</h4>
+        <h4><span class="n">CH 2</span>Check the map against reality</h4>
         <p>An LLM's map is a guess. But we own 18 <em>recordings of real CU↔DU conversations</em> —
         flight recorders from real flights. We replay each recording through the map: if the map
         already has an arrow, follow it; if reality does something the map doesn't know, the map
@@ -272,7 +262,7 @@ abbr{cursor:help}
       </div>
 
       <div class="ch">
-        <h4><span class="n">CH 4</span>Every journey — then delete almost all</h4>
+        <h4><span class="n">CH 3</span>Every journey — then delete almost all</h4>
         <p>A test case is one <em>journey</em> through the map, sometimes with a message deliberately
         dropped or corrupted. With 41 states the journeys number in the hundreds; each real run
         costs a CU restart. So a seeded, fully-logged <b>funnel</b> sieves them: keep journeys that
@@ -282,7 +272,7 @@ abbr{cursor:help}
       </div>
 
       <div class="ch">
-        <h4><span class="n">CH 5</span>Turn the plan into 68 bytes</h4>
+        <h4><span class="n">CH 4</span>Turn the plan into 68 bytes</h4>
         <p>So far the attack is a drawing. Machines don't read drawings — they read bytes. We take a
         <em>real, captured</em> F1-Setup-Response as a template (so every field looks legitimate) and
         re-encode it with <code>pycrate</code> into ASN.1's wire format — the binary language 3GPP
@@ -292,7 +282,7 @@ abbr{cursor:help}
       </div>
 
       <div class="ch">
-        <h4><span class="n">CH 6</span>Send it — and watch the brain die</h4>
+        <h4><span class="n">CH 5</span>Send it — and watch the brain die</h4>
         <p>A real OAI CU is running in a Docker container on this machine. Our tool opens an SCTP
         socket (F1AP's transport) to port 38472 and sends the 68 bytes — <em>without ever sending
         the Setup Request that must precede them</em>. The CU takes a code path its authors thought
