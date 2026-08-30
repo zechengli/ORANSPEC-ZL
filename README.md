@@ -1,0 +1,1 @@
+O-RAN spec testing, reproduced live: from TS 38.473 to SIGSEGV. Interactive walkthrough of a rebuilt ARCANE-style pipeline — specs → LLM ×3 → FSM → refinement → elimination funnel → APER → SCTP → exit 139. All numbers from real recorded runs.

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORANSPEC-ZL — from 3GPP spec to SIGSEGV</title>
+<meta name="description" content="An interactive, faithful replay of an O-RAN F1AP model-based fuzzing pipeline: real specs, three real LLM runs, refinement, mutation, APER bytes, and the recorded crash.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f7f8fa; --paper2:#eef1f5; --ink:#16212e; --ink2:#4a5a6c;
+  --etsi:#1d4f91; --etsi-soft:#e3ebf6; --hair:#d4dbe4;
+  --console:#10161d; --console2:#161e27; --console-ink:#c9d6e3; --console-dim:#7d8ea1;
+  --signal:#e8a33d; --ok:#2f8f5b; --fault:#d1495b; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font:16px/1.65 "IBM Plex Sans",system-ui,sans-serif}
+h1,h2,h3{line-height:1.2;text-wrap:balance}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- header ---------- */
+header{border-bottom:1px solid var(--hair);background:var(--paper)}
+.bar{display:flex;align-items:baseline;gap:16px;padding:20px 0 14px}
+.logo{font-family:var(--mono);font-weight:500;font-size:19px;letter-spacing:.5px}
+.logo b{color:var(--etsi);font-weight:500}
+.bar .sub{color:var(--ink2);font-size:13.5px}
+.ribbon{display:flex;flex-wrap:wrap;gap:0;padding:0 0 18px;overflow-x:auto}
+.ribbon span{font-family:var(--mono);font-size:11.5px;letter-spacing:.4px;color:var(--ink2);
+  padding:5px 12px;border:1px solid var(--hair);border-right:none;white-space:nowrap;background:#fff}
+.ribbon span:last-child{border-right:1px solid var(--hair)}
+.ribbon span.hl{background:var(--etsi);border-color:var(--etsi);color:#fff}
+.ribbon span.fault{background:var(--fault);border-color:var(--fault);color:#fff}
+
+/* ---------- stage shell ---------- */
+.stage{padding:52px 0 8px}
+.eyebrow{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.eyebrow .n{font-family:var(--mono);font-size:12px;color:var(--etsi);border:1px solid var(--etsi);
+  padding:2px 8px;background:var(--etsi-soft)}
+.eyebrow .t{font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink2);font-weight:600}
+.stage h2{font-size:27px;font-weight:600;margin-bottom:10px}
+.lede{max-width:70ch;color:var(--ink2);margin-bottom:22px}
+.lede b,.lede a{color:var(--ink)}
+.spec-quote{font-family:"IBM Plex Serif",Georgia,serif;border-left:3px solid var(--etsi);
+  background:#fff;border-top:1px solid var(--hair);border-right:1px solid var(--hair);border-bottom:1px solid var(--hair);
+  padding:18px 22px;margin:18px 0;max-width:76ch}
+.spec-quote .ref{font-family:var(--mono);font-size:11.5px;color:var(--etsi);display:block;margin-bottom:6px;letter-spacing:.5px}
+.spec-quote .dir{color:var(--etsi);font-weight:600}
+hr.rule{border:none;border-top:1px solid var(--hair);margin:44px 0 0}
+.note{font-size:13px;color:var(--ink2);max-width:78ch;margin-top:10px}
+.note b{color:var(--ink)}
+
+/* ---------- tabs / spec viewer ---------- */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 0}
+.tabs button{font-family:var(--mono);font-size:12.5px;padding:7px 14px;border:1px solid var(--hair);
+  background:#fff;color:var(--ink2);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--etsi);border-color:var(--etsi);color:#fff}
+pre.paper{font-family:"IBM Plex Serif",Georgia,serif;font-size:15px;line-height:1.7;white-space:pre-wrap;
+  background:#fff;border:1px solid var(--hair);padding:22px 26px;max-width:80ch;margin-top:-1px}
+pre.paper .hl{background:var(--etsi-soft);padding:1px 3px;outline:1px solid #b9cde8}
+pre.asn{font-family:var(--mono);font-size:13px;line-height:1.65;white-space:pre;overflow-x:auto;
+  background:#fff;border:1px solid var(--hair);padding:22px 26px;max-width:100%;margin-top:-1px;color:var(--ink)}
+pre.asn .c{color:var(--ink2)}
+pre.asn .k{color:var(--etsi);font-weight:500}
+
+/* ---------- cards / selector ---------- */
+.sel{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0}
+@media(max-width:760px){.sel{grid-template-columns:1fr}}
+.card{border:1px solid var(--hair);background:#fff;padding:16px 18px;cursor:pointer;position:relative}
+.card:hover{border-color:var(--etsi)}
+.card[aria-pressed="true"]{border-color:var(--etsi);box-shadow:inset 0 0 0 1px var(--etsi)}
+.card .tag{font-family:var(--mono);font-size:11px;color:var(--etsi);letter-spacing:.5px}
+.card h3{font-size:15.5px;font-weight:600;margin:3px 0 6px}
+.card p{font-size:13px;color:var(--ink2);line-height:1.5}
+.card .win{position:absolute;top:10px;right:12px;font-family:var(--mono);font-size:10.5px;color:var(--ok)}
+.facts{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.fact{border:1px solid var(--hair);background:#fff;padding:10px 16px;min-width:120px}
+.fact .v{font-family:var(--mono);font-size:21px;color:var(--etsi)}
+.fact .k{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--ink2);margin-top:2px}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto;border:1px solid var(--hair);background:#fff;margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink2);
+  text-align:left;padding:10px 14px;border-bottom:1px solid var(--hair);font-weight:500}
+td{padding:9px 14px;border-bottom:1px solid var(--paper2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.mono{font-family:var(--mono);font-size:12.5px}
+.chip{display:inline-block;font-family:var(--mono);font-size:11px;padding:1px 8px;border:1px solid}
+.chip.du{color:var(--etsi);border-color:#b9cde8;background:var(--etsi-soft)}
+.chip.cd{color:#8a5a13;border-color:#ecd7ad;background:#fdf3e0}
+.chip.ill{color:var(--fault);border-color:#efc2c9;background:#fbe9ec}
+.chip.ok{color:var(--ok);border-color:#bfe0cc;background:#e8f5ed}
+
+/* ---------- funnel ---------- */
+.fun{margin:20px 0}
+.frow{display:grid;grid-template-columns:52px 1fr 108px;gap:14px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--hair)}
+.frow:last-child{border-bottom:none}
+@media(max-width:680px){.frow{grid-template-columns:40px 1fr}.frow .cnt{grid-column:2}}
+.fname{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+.fbar{height:14px;background:var(--etsi-soft);position:relative;border:1px solid var(--hair)}
+.fbar i{position:absolute;inset:0;right:auto;background:var(--etsi);transition:width .45s ease}
+.frow.sel7 .fbar i{background:var(--signal);border-color:var(--signal);opacity:.85}
+.frow.sel7 .fname{color:#8a5a13}
+.fcnt{font-family:var(--mono);font-size:12.5px;color:var(--ink2);text-align:right}
+.fnote{grid-column:2/4;font-size:12.5px;color:var(--ink2);margin-top:-4px;padding-bottom:6px}
+@media(max-width:680px){.fnote{grid-column:2}}
+
+/* ---------- bytes ---------- */
+.bytes{font-family:var(--mono);font-size:14px;line-height:2;letter-spacing:.5px;background:var(--console);
+  color:var(--console-ink);padding:20px 24px;overflow-x:auto;margin:16px 0;white-space:pre}
+.bytes .a{color:var(--signal)}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--ink2);margin-bottom:6px}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:baseline}
+
+/* ---------- console ---------- */
+.console{background:var(--console);border:1px solid #0a0f14;margin:20px 0 0}
+.cbar{display:flex;align-items:center;gap:10px;background:var(--console2);padding:9px 16px;border-bottom:1px solid #232d39}
+.cbar .dots{display:flex;gap:6px}
+.cbar .dots i{width:10px;height:10px;border-radius:50%;background:#2c3949}
+.cbar .ttl{font-family:var(--mono);font-size:12px;color:var(--console-dim);letter-spacing:.5px}
+.cbar button{margin-left:auto;font-family:var(--mono);font-size:11.5px;padding:4px 14px;cursor:pointer;
+  border:1px solid var(--signal);color:var(--signal);background:transparent}
+.cbar button:hover{background:var(--signal);color:var(--console)}
+.cbar button:disabled{opacity:.4;cursor:default}
+.cbar button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.cbody{font-family:var(--mono);font-size:13px;line-height:1.9;padding:18px 22px;min-height:320px;color:var(--console-ink);white-space:pre-wrap}
+.cbody .p{color:var(--console-dim)}
+.cbody .s{color:var(--ok)}
+.cbody .w{color:var(--signal)}
+.cbody .f{color:var(--fault);font-weight:500}
+.cbody .verdict{display:inline-block;border:1px solid var(--fault);color:var(--fault);padding:2px 10px;margin-top:8px}
+.replay-note{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:var(--ink2);margin-top:10px}
+.replay-note .chip{border-color:var(--ok)}
+
+/* ---------- pipeline diagram ---------- */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin:26px 0 6px}
+.pipe .st{flex:1 1 110px;border:1px solid var(--hair);background:#fff;padding:10px 12px;min-width:200px}
+.pipe .st .p1{font-family:var(--mono);font-size:11px;color:var(--etsi);letter-spacing:.5px}
+.pipe .st .p2{font-size:13px;color:var(--ink);margin-top:2px}
+.pipe .arrow{align-self:center;color:var(--ink2);font-family:var(--mono)}
+
+/* ---------- footer ---------- */
+footer{margin-top:64px;background:var(--console);color:var(--console-dim)}
+footer .wrap{padding:34px 24px}
+footer .cols{display:flex;flex-wrap:wrap;gap:40px}
+footer h4{font-family:var(--mono);font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--console-ink);margin-bottom:10px;font-weight:500}
+footer li{list-style:none;font-size:13px;line-height:1.9;font-family:var(--mono)}
+footer a{color:var(--signal);text-decoration:none}
+footer a:hover{text-decoration:underline}
+abbr{cursor:help}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="bar">
+      <div class="logo">ORAN<b>-SPEC</b>-ZL</div>
+      <div class="sub">from 3GPP spec to SIGSEGV — a reproducible O-RAN F1AP testing pipeline</div>
+    </div>
+    <nav class="ribbon" aria-label="pipeline">
+      <span>TS 38.473 SPEC</span><span>LLM ×3</span><span>FSM</span><span>REFINEMENT</span><span>FUNNEL</span><span>APER</span><span>SCTP</span><span class="fault">EXIT 139</span>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ================ 0 THE BUG ================ -->
+  <section class="stage" id="s0">
+    <div class="eyebrow"><span class="n">STAGE 0</span><span class="t">The bug &amp; the spec</span></div>
+    <h2>One message the spec forbids</h2>
+    <p class="lede">Bug <b>CU07</b> (ARCANE test suite): <em>"gNB-CU crashes when receiving F1AP Setup
+    Response."</em> A fake gNB-DU sends a CU an F1-Setup-Response it never requested. The spec pins this
+    message to one direction only — the invariant every model in this pipeline encodes:</p>
+
+    <div class="tabs" role="tablist" aria-label="spec excerpts">
+      <button role="tab" aria-selected="true" data-tab="t1">§8.2.3.1 General</button>
+      <button role="tab" aria-selected="false" data-tab="t2">§9.2.1.5 F1 SETUP RESPONSE</button>
+      <button role="tab" aria-selected="false" data-tab="t3">§8.2.3.4 Abnormal</button>
+      <button role="tab" aria-selected="false" data-tab="t4">ASN.1 v16.3.1</button>
+    </div>
+    <pre class="paper" id="t1"><span class="hl">The purpose of the F1 Setup procedure is to exchange application level data needed for the
+gNB-DU and the gNB-CU to correctly interoperate on the F1 interface. This procedure shall be
+the first F1AP procedure triggered for the F1-C interface instance after a TNL association has
+become operational.</span>
+
+<span style="color:var(--ink2)">        — ETSI TS 138 473 V16.13.0, §8.2.3.1 (p. 25)</span></pre>
+    <pre class="paper" id="t2" hidden>This message is sent by the gNB-CU to transfer information associated to an F1-C interface instance.
+
+<span class="hl">       Direction: gNB-CU → gNB-DU</span>
+
+<span style="color:var(--ink2)">        — ETSI TS 138 473 V16.13.0, §9.2.1.5 (p. 93)</span>
+
+The Response may therefore <b>only ever flow CU → DU</b>. Arriving from a DU with no Request
+outstanding, it cannot exist in an honest session — a compliant CU discards it.</pre>
+    <pre class="paper" id="t3" hidden>8.2.3.4   Abnormal Conditions
+
+<span class="hl">Not applicable.</span>
+
+<span style="color:var(--ink2)">        — ETSI TS 138 473 V16.13.0, §8.2.3.4 (p. 28)</span>
+
+The spec defines <b>no</b> recovery behaviour for a broken F1 Setup exchange — implementations
+get no guidance here, which is exactly where fuzzers hunt.</pre>
+    <pre class="asn" id="t4" hidden><span class="c">-- TS 38.473 v16.3.1 (the ASN.1 the target CU was compiled against)</span>
+<span class="k">f1Setup</span> F1AP-ELEMENTARY-PROCEDURE ::= {
+    INITIATING MESSAGE       F1SetupRequest      <span class="c">-- DU → CU</span>
+    SUCCESSFUL OUTCOME       F1SetupResponse     <span class="c">-- CU → DU</span>
+    UNSUCCESSFUL OUTCOME     F1SetupFailure      <span class="c">-- CU → DU</span>
+    PROCEDURE CODE           id-F1Setup
+    CRITICALITY              reject
+}</pre>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ================ 1 THE LLM ================ -->
+  <section class="stage" id="s1">
+    <div class="eyebrow"><span class="n">STAGE 1</span><span class="t">Spec → FSM via LLM</span></div>
+    <h2>One model, three framings</h2>
+    <p class="lede">The same spec feed (§8.2.3 + §9.2.1.5 prose, plus the v16.3.1 ASN.1 with
+    <code class="mono">PRESENCE mandatory/optional</code> clauses) was sent to
+    <b>glm-5.3-flash:cloud</b> three times, changing only the persona. Pick a framing —
+    every number below this point follows your choice.</p>
+
+    <div class="sel" role="radiogroup" aria-label="LLM framing">
+      <button class="card" data-run="A" aria-pressed="false">
+        <span class="win"></span>
+        <div class="tag">FRAMING A</div><h3>Faithful protocol modeler</h3>
+        <p>ARCANE's implied prompt — neutral spec → FSM conversion.</p>
+      </button>
+      <button class="card" data-run="B" aria-pressed="false">
+        <span class="win"></span>
+        <div class="tag">FRAMING B</div><h3>Security analyst</h3>
+        <p>Emphasis on who may send what, when — unsolicited &amp; illegal edges made explicit.</p>
+      </button>
+      <button class="card" data-run="C" aria-pressed="false">
+        <span class="win"></span>
+        <div class="tag">FRAMING C</div><h3>Formal-methods engineer</h3>
+        <p>Pedantic about direction, presence and preconditions on every transition.</p>
+      </button>
+    </div>
+
+    <div class="facts" id="facts"></div>
+
+    <div class="tw"><table id="edges">
+      <thead><tr><th>From</th><th>Message</th><th>To</th><th>Direction (LLM-preserved)</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+
+    <div id="illegal-wrap"></div>
+    <p class="note"><b>Why this stage matters:</b> ARCANE's published seed model carries <em>no</em>
+    direction information — the gap that makes an unsolicited Response look walkable. All three
+    framings here preserved it. Framing B went further and modeled the attack itself as an edge
+    with <code class="mono">expected_result: reject</code> — OAI's real answer is SIGSEGV.
+    <br><br><b>Recorded limitation:</b> GLM is a reasoning model; pass&nbsp;1 burned its 32&thinsp;768-token
+    output on thinking and truncated the JSON. Pass&nbsp;2 added a compactness clause. That
+    unreliability is part of the honest story.</p>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ================ 2 REFINEMENT ================ -->
+  <section class="stage" id="s2">
+    <div class="eyebrow"><span class="n">STAGE 2</span><span class="t">Model ↔ reality</span></div>
+    <h2>Refinement with ARCANE's own algorithm</h2>
+    <p class="lede">The LLM model is merged, trace by trace, with <b>18 real CU↔DU sessions</b>
+    using <code class="mono">ARCANEModelRefiner.merge_pta</code> — ARCANE's own code, unmodified
+    (similarity 0.6·procedure + 0.4·weighted-IE, threshold 0.7). Score &gt; 0.7 merges into an edge;
+    otherwise the model grows a new state.</p>
+    <div class="facts" id="rfacts"></div>
+    <p class="note" id="pdrop"></p>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ================ 3 FUNNEL ================ -->
+  <section class="stage" id="s3">
+    <div class="eyebrow"><span class="n">STAGE 3</span><span class="t">Test cases &amp; elimination</span></div>
+    <h2>How 16 paths become one attack</h2>
+    <p class="lede">State space explodes; the funnel keeps it testable. Every pruning stage is
+    seeded and logged (<code class="mono">seed 20260828</code>) — this is the answer to
+    <em>"how do you eliminate test cases?"</em></p>
+    <div class="fun" id="fun"></div>
+    <p class="note"><b>The seam worth knowing:</b> ARCANE's shipped run used <code class="mono">max_paths=10</code> —
+    with that cap the DFS never reaches any response branch (their own 100 emitted cases contain
+    zero). Raising the cap to 200 is what exposes the CU07 path. Framing B scored 0 here because
+    B's model already contains the attack as an explicit edge — it needs no mutation to find it.</p>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ================ 4 APER ================ -->
+  <section class="stage" id="s4">
+    <div class="eyebrow"><span class="n">STAGE 4</span><span class="t">ASN.1 concretization</span></div>
+    <h2>68 bytes on the wire</h2>
+    <p class="lede">Abstract cases become bytes the same way ARCANE does it: a captured real
+    F1-Setup-Response (<code class="mono">trace[1]</code>) as template, pycrate as the codec,
+    ASN.1AlignedPacketEncoding on the way out. Byte ranges:
+    <span class="legend" style="display:inline-flex;gap:14px">
+      <span><i style="background:var(--signal)"></i>presentation + F1AP header</span>
+      <span><i style="background:var(--etsi)"></i>payload IE container</span></span></p>
+    <div class="bytes" id="bytes"></div>
+    <p class="note">Round-trip <code class="mono">from_aper()</code> verified before sending.
+    Decodes to: <em>F1-Setup-Response · gNB-Eurecom-CU · RRC 17.3.0 · PLMN 208/95</em>.</p>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ================ 5 EXECUTION ================ -->
+  <section class="stage" id="s5" style="padding-bottom:30px">
+    <div class="eyebrow"><span class="n">STAGE 5</span><span class="t">Execution &amp; monitoring</span></div>
+    <h2>The recorded run</h2>
+    <p class="lede">A fresh OAI gNB-CU (ARCANE's <code class="mono">sdran/sdran-mobicom:v1</code> image
+    under Intel SDE) accepts the association on F1-C :38472. One unsolicited F1-Setup-Response
+    arrives — and the CU dies.</p>
+
+    <div class="console">
+      <div class="cbar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="ttl">oai-gnb-cu — F1AP fuzz replay — RECORDED 2026-08-28</span>
+        <button id="replay">▶ replay</button>
+      </div>
+      <div class="cbody" id="cbody" aria-live="polite"></div>
+    </div>
+    <p class="replay-note">This terminal replays the actual session log from 2026-08-28.
+    A browser page cannot open SCTP or crash a real CU — the live execution ran on the host
+    machine (<code class="mono">fuzz_run.py</code>), and every line above is from that run.</p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>Provenance</h4>
+        <ul>
+          <li>Spec — ETSI TS 138 473 V16.13.0 + ASN.1 v16.3.1</li>
+          <li>LLM — glm-5.3-flash:cloud, 3 framings, 2026-08-28</li>
+          <li>Refinement — ARCANE exp1 merge_pta (unmodified)</li>
+          <li>Target — OAI gNB-CU, sdran-mobicom:v1, Intel SDE</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Artifacts</h4>
+        <ul>
+          <li>prompts · raw responses · thinking logs</li>
+          <li>fsm.json · refined_fsm.dot per run</li>
+          <li>elimination_log.json (seeded funnel)</li>
+          <li>wire_cases.json · fuzz_run.py</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Verdict</h4>
+        <ul>
+          <li class="num">exit 139 = 128 + 11 = SIGSEGV</li>
+          <li>bug CU07 — reproduced end to end</li>
+          <li>&nbsp;</li>
+          <li>pipeline rebuilt, not copied</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script id="data" type="application/json">{"A":{"fsm":{"states":["IDLE","F1_SETUP_PENDING","F1_SETUP_COMPLETE","F1_SETUP_FAILURE"],"transitions":[{"from":"IDLE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU","procedure":"F1 Setup, successful operation (TS 38.473 \u00a78.2.3.2; ASN.1 F1SetupRequestIEs, v16.3.1 extract)","conformance_vector":"positive_baseline_full_IE","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-DU ID":"valid","gNB-DU Name":"valid","Extended gNB-DU Name":"valid","gNB-DU Served Cells List":"valid","gNB-DU System Information":"valid","TAI Slice Support List":"valid","gNB-DU RRC Version":"valid","Latest RRC Version Enhanced":"valid","Transport Layer Address Info":"valid","BAP Address":"valid"},"notes":"F1 Setup shall be the first F1AP procedure triggered after the TNL association becomes operational (\u00a78.2.3.1). gNB-DU System Information and TAI Slice Support List are nested in gNB-DU Served Cells List > Served Cell Information and shall be included for NG-RAN (\u00a78.2.3.2). Latest RRC Version Enhanced shall be included (\u00a78.2.3.2) but is absent from the v16.3.1 ASN.1 extract (version-skew finding). \u00a78.2.3.2 names the optional name IE 'Extended gNB-DU Name'; ASN.1 v16.3.1 F1SetupRequestIEs lists id-Extended-GNB-CU-Name \u2014 discrepancy to verify on the IUT. Optional Served Cell Information IEs (Cell Direction, Intended TDD DL-UL Configuration, Aggressor/Victim gNB Set ID, SFN Offset, NR Cell PRACH Configuration) omitted in this vector; Cell Direction omitted is interpreted as bi-directional (\u00a78.2.3.2)."},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU","procedure":"F1 Setup, successful operation (TS 38.473 \u00a78.2.3.2; message definition table \u00a79.2.1.5)","conformance_vector":"positive_baseline_full_IE","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-CU Name":"valid","Cells to be Activated List":"valid","NR CGI":"valid","NR PCI":"valid","gNB-CU System Information":"valid","Available PLMN List":"valid","Extended Available PLMN List":"valid","IAB Info IAB-donor-CU":"valid","Available SNPN ID List":"valid","gNB-CU RRC version":"valid","Latest RRC Version Enhanced":"valid","Transport Layer Address Info":"valid","Uplink BH Non-UP Traffic Mapping":"valid","BAP Address":"valid","Extended gNB-CU Name":"valid"},"notes":"NR CGI, NR PCI, gNB-CU System Information, Available PLMN List, Extended Available PLMN List, IAB Info IAB-donor-CU and Available SNPN ID List are nested in Cells to be Activated List Item (1..<maxCellingNBDU> = 512, \u00a79.2.1.5). gNB-CU System Information shall be included for NG-RAN (\u00a78.2.3.2); Extended Available PLMN List only together with Available PLMN List and >6 PLMNs; Available SNPN ID List, if present, supersedes the PLMN lists. Extended gNB-CU Name per \u00a79.2.1.5 table; ASN.1 v16.3.1 lists id-Extended-GNB-DU-Name in F1SetupResponseIEs (swapped vs request \u2014 verify on IUT). On this transition the F1 interface becomes operational and other F1 messages may be exchanged (\u00a78.2.3.2). No UE-context procedure message tables appear in the provided extracts, so no UE-context states/transitions are modeled. Latest RRC Version Enhanced shall be included (\u00a78.2.3.2) though absent from the v16.3.1 ASN.1 and the \u00a79.2.1.5 table extract."},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_FAILURE","MessageType":"F1_SETUP_FAILURE","direction":"gNB-CU -> gNB-DU","procedure":"F1 Setup, unsuccessful operation (TS 38.473 \u00a78.2.3.3)","conformance_vector":"positive_baseline_full_IE","IEs":{"Message Type":"valid","Transaction ID":"valid","Cause":"valid","Time To Wait":"valid"},"notes":"Sent when the gNB-CU cannot accept the setup, with appropriate cause value (\u00a78.2.3.3). The \u00a79.2.1.6 definition table is not in the extracts: Cause is grounded in \u00a78.2.3.3, Transaction ID in the mandatory pattern of F1 Setup messages. Time To Wait is optional; minimal conformant vector = Message Type + Transaction ID + Cause. If Time To Wait is included, the gNB-DU shall wait at least the indicated time before reinitiating F1 Setup towards the same gNB-CU."},{"from":"F1_SETUP_FAILURE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU","procedure":"F1 Setup re-initiation after failure (TS 38.473 \u00a78.2.3.3)","conformance_vector":"positive_baseline_full_IE","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-DU ID":"valid","gNB-DU Name":"valid","Extended gNB-DU Name":"valid","gNB-DU Served Cells List":"valid","gNB-DU System Information":"valid","TAI Slice Support List":"valid","gNB-DU RRC Version":"valid","Latest RRC Version Enhanced":"valid","Transport Layer Address Info":"valid","BAP Address":"valid"},"notes":"Re-initiation of F1 Setup towards the same gNB-CU is permitted only after Time To Wait (if included in the F1 SETUP FAILURE) has elapsed (\u00a78.2.3.3). IE set identical to positive baseline F1_SETUP_REQUEST."},{"from":"F1_SETUP_COMPLETE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU","procedure":"F1 Setup re-run on operational interface (TS 38.473 \u00a78.2.3.1)","conformance_vector":"positive_baseline_full_IE","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-DU ID":"valid","gNB-DU Name":"valid","Extended gNB-DU Name":"valid","gNB-DU Served Cells List":"valid","gNB-DU System Information":"valid","TAI Slice Support List":"valid","gNB-DU RRC Version":"valid","Latest RRC Version Enhanced":"valid","Transport Layer Address Info":"valid","BAP Address":"valid"},"notes":"F1 Setup erases any existing application level configuration data, re-initialises F1AP UE-related contexts (if any) and erases related signalling connections like a Reset (\u00a78.2.3.1). IE set identical to positive baseline F1_SETUP_REQUEST. Note: gNB-DU Configuration Update (\u00a78.2.4.1) is visible in the extracts only as General text without message tables, so it is not modeled."},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU","procedure":"F1 Setup, negative test vector on F1 SETUP RESPONSE (\u00a79.2.1.5)","conformance_vector":"negative_missing_mandatory_IE","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-CU RRC version":"missing"},"notes":"gNB-CU RRC version is PRESENCE mandatory with criticality reject (\u00a79.2.1.5; ASN.1 line 1517). A response without it is defective; the FSM shall not reach F1_SETUP_COMPLETE. IUT handling per F1AP criticality rules (\u00a710 not in extracts)."},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU","procedure":"F1 Setup, negative test vector on F1 SETUP RESPONSE (\u00a79.2.1.5)","conformance_vector":"negative_invalid_IE","IEs":{"Cells to be Activated List":"invalid"},"notes":"More than maxCellingNBDU = 512 items violates SIZE(1..maxCellingNBDU) (\u00a79.2.1.5 range bound; ASN.1 line 1526) \u2014 invalid."},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU","procedure":"F1 Setup, negative test vector on F1 SETUP RESPONSE (\u00a79.2.1.5)","conformance_vector":"negative_conditional_presence","IEs":{"Extended Available PLMN List":"invalid","Available PLMN List":"missing"},"notes":"Extended Available PLMN List is included only if Available PLMN List is included and more than 6 Available PLMNs are to be signalled (\u00a79.2.1.5). Present without Available PLMN List => invalid; the required Available PLMN List is missing in this vector."},{"from":"IDLE","to":"IDLE","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU","procedure":"F1 Setup, negative test vector on F1 SETUP REQUEST (ASN.1 F1SetupRequestIEs, v16.3.1 extract)","conformance_vector":"negative_missing_mandatory_IE","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-DU ID":"missing"},"notes":"gNB-DU ID is PRESENCE mandatory with criticality reject (ASN.1 line 1482). The F1 Setup cannot be accepted; FSM remains IDLE pending IUT behaviour (e.g. F1 SETUP FAILURE per \u00a78.2.3.3 / criticality handling, \u00a710 not in extracts)."},{"from":"IDLE","to":"IDLE","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU","procedure":"F1 Setup, negative test vector on F1 SETUP REQUEST (\u00a79.2.1.5 / ASN.1 line 1493)","conformance_vector":"negative_invalid_IE","IEs":{"gNB-DU Served Cells List":"invalid"},"notes":"GNB-DU-Served-Cells-List ::= SEQUENCE (SIZE(1..maxCellingNBDU=512)); an empty served cells list violates the size constraint => invalid."},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU","procedure":"F1 Setup, negative test vector on F1 SETUP RESPONSE (\u00a79.2.1.5)","conformance_vector":"negative_invalid_IE","IEs":{"Cells to be Activated List":"valid","NR CGI":"valid","NR PCI":"invalid"},"notes":"NR PCI is INTEGER (0..1007) (\u00a79.2.1.5); value 1008 => invalid. NR CGI (mandatory within each Cells to be Activated List Item) present and valid."}],"extras_kept":[],"audit":{"has_F1_SETUP_RESPONSE":true,"direction_encoded":["direction"],"idle_f1resp_edges":[],"n_transitions":11,"n_states":4}},"show":[{"from":"IDLE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_FAILURE","MessageType":"F1_SETUP_FAILURE","direction":"gNB-CU -> gNB-DU"},{"from":"F1_SETUP_FAILURE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"F1_SETUP_COMPLETE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"IDLE","to":"IDLE","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"IDLE","to":"IDLE","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"}],"illegal":[],"funnel":[{"label":"S2","note":"DFS cap max_length=6, max_paths=200 (ARCANE shipped 10 \u2014 too low to reach responses)","count":16},{"label":"S3","note":"identical message-type sequences removed","after":15},{"label":"S4+S5","note":"ARCANE mutation probs = 0.3 (drop/reorder/add + IE flips)","after":32},{"label":"S6","note":"cap=400, uniform sample","after":32},{"label":"S7","note":"unsolicited F1_SETUP_RESPONSE (request dropped)","after":2},{"label":"S8","count":2,"note":"encodable via template + pycrate \u2014 wire cases surviving"},{"label":"R7","count":1,"note":"executed: unsolicited F1-Setup-Response replayed to the CU (run A: case 31)"}],"counts":{"paths":16,"unique":15,"mutated":32,"kept":32,"cu07_family":2},"base":{"states":4,"transitions":7},"refined":{"states":41,"transitions":44},"thinking_chars":107840,"raw_chars":9233,"pdrop":"ARCANE's model format allows only <b>one transition per (source, target)<\/b>: 4 of A's 11 LLM edges were parallel duplicates and were dropped at conversion \u2014 a structural fidelity loss in ARCANE's own container, logged per edge."},"B":{"fsm":{"states":["IDLE","F1_SETUP_PENDING","F1_SETUP_COMPLETE","F1_SETUP_FAILED","GNB_DU_CONFIG_UPDATE_PENDING","UE_CONTEXT_SETUP_PENDING","UE_CONTEXT_SETUP_COMPLETE","UE_CONTEXT_RELEASE_PENDING"],"transitions":[{"from":"IDLE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","IEs":{"TransactionID":"valid","gNB-DU-ID":"valid","gNB-DU-RRC-Version":"valid","gNB-DU-Served-Cells-List":"valid","gNB-DU-Name":"valid","Transport-Layer-Address-Info":"valid"},"direction":"gNB-DU -> gNB-CU","sender":"gNB-DU","legal":true,"criticality":"reject","procedure":"id-F1Setup","optional_IEs":["gNB-DU-Name","gNB-DU-Served-Cells-List","Transport-Layer-Address-Info"],"precondition":"Must be the first F1AP procedure after the TNL association becomes operational","note":"gNB-DU System Information and TAI Slice Support List ride inside the Served Cells List for NG-RAN"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","IEs":{"TransactionID":"valid","gNB-CU-RRC-Version":"valid","gNB-CU-Name":"valid","Cells-to-be-Activated-List":"valid","Transport-Layer-Address-Info":"valid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":true,"criticality":"reject","procedure":"id-F1Setup","optional_IEs":["gNB-CU-Name","Cells-to-be-Activated-List","Transport-Layer-Address-Info"],"note":"gNB-CU System Information is mandatory for NG-RAN inside Cells-to-be-Activated-List items"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_FAILED","MessageType":"F1_SETUP_FAILURE","IEs":{"TransactionID":"valid","Cause":"valid","TimeToWait":"valid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":true,"procedure":"id-F1Setup","optional_IEs":["TimeToWait"],"note":"gNB-DU shall wait at least TimeToWait before reinitiating setup toward the same gNB-CU"},{"from":"F1_SETUP_FAILED","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","IEs":{"TransactionID":"valid","gNB-DU-ID":"valid","gNB-DU-RRC-Version":"valid","gNB-DU-Served-Cells-List":"valid"},"direction":"gNB-DU -> gNB-CU","sender":"gNB-DU","legal":true,"procedure":"id-F1Setup","precondition":"Retry permitted only after TimeToWait has elapsed"},{"from":"F1_SETUP_COMPLETE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","IEs":{"TransactionID":"valid","gNB-DU-ID":"valid","gNB-DU-RRC-Version":"valid","gNB-DU-Served-Cells-List":"valid"},"direction":"gNB-DU -> gNB-CU","sender":"gNB-DU","legal":true,"procedure":"id-F1Setup","note":"Re-setup erases stored application-level config and re-initialises all UE contexts like a Reset"},{"from":"F1_SETUP_COMPLETE","to":"GNB_DU_CONFIG_UPDATE_PENDING","MessageType":"GNB_DU_CONFIGURATION_UPDATE","IEs":{"TransactionID":"valid"},"direction":"gNB-DU -> gNB-CU","sender":"gNB-DU","legal":true,"inferred":true,"note":"Procedure per 8.2.4 General; full IE list not present in extract"},{"from":"GNB_DU_CONFIG_UPDATE_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"GNB_DU_CONFIGURATION_UPDATE_ACKNOWLEDGE","IEs":{"TransactionID":"valid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":true,"inferred":true},{"from":"GNB_DU_CONFIG_UPDATE_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"GNB_DU_CONFIGURATION_UPDATE_FAILURE","IEs":{"TransactionID":"valid","Cause":"valid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":true,"inferred":true},{"from":"F1_SETUP_COMPLETE","to":"UE_CONTEXT_SETUP_PENDING","MessageType":"UE_CONTEXT_SETUP_REQUEST","IEs":{"gNB-CU-UE-F1AP-ID":"valid","gNB-DU-UE-F1AP-ID":"valid","SpCell-ID":"valid","CU-to-DU-RRC-Information":"valid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":true,"inferred":true,"optional_IEs":["gNB-DU-UE-F1AP-ID"],"note":"UE-associated signalling legal only after F1 Setup completes"},{"from":"UE_CONTEXT_SETUP_PENDING","to":"UE_CONTEXT_SETUP_COMPLETE","MessageType":"UE_CONTEXT_SETUP_RESPONSE","IEs":{"gNB-CU-UE-F1AP-ID":"valid","gNB-DU-UE-F1AP-ID":"valid","DU-to-CU-RRC-Information":"valid"},"direction":"gNB-DU -> gNB-CU","sender":"gNB-DU","legal":true,"inferred":true},{"from":"UE_CONTEXT_SETUP_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"UE_CONTEXT_SETUP_FAILURE","IEs":{"gNB-CU-UE-F1AP-ID":"valid","gNB-DU-UE-F1AP-ID":"valid","Cause":"valid"},"direction":"gNB-DU -> gNB-CU","sender":"gNB-DU","legal":true,"inferred":true},{"from":"UE_CONTEXT_SETUP_COMPLETE","to":"UE_CONTEXT_RELEASE_PENDING","MessageType":"UE_CONTEXT_RELEASE_COMMAND","IEs":{"gNB-CU-UE-F1AP-ID":"valid","gNB-DU-UE-F1AP-ID":"valid","Cause":"valid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":true,"inferred":true},{"from":"UE_CONTEXT_RELEASE_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"UE_CONTEXT_RELEASE_COMPLETE","IEs":{"gNB-CU-UE-F1AP-ID":"valid","gNB-DU-UE-F1AP-ID":"valid"},"direction":"gNB-DU -> gNB-CU","sender":"gNB-DU","legal":true,"inferred":true},{"from":"IDLE","to":"IDLE","MessageType":"F1_SETUP_RESPONSE","IEs":{"TransactionID":"invalid","gNB-CU-RRC-Version":"valid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":false,"violation_type":"unsolicited","reason":"No F1 SETUP REQUEST outstanding on this F1-C interface instance","expected_result":"reject"},{"from":"IDLE","to":"IDLE","MessageType":"F1_SETUP_REQUEST","IEs":{"TransactionID":"valid","gNB-DU-ID":"valid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":false,"violation_type":"wrong_direction","reason":"Only the gNB-DU may initiate the F1 Setup procedure","expected_result":"reject"},{"from":"IDLE","to":"IDLE","MessageType":"UE_CONTEXT_SETUP_REQUEST","IEs":{"gNB-CU-UE-F1AP-ID":"valid","gNB-DU-UE-F1AP-ID":"missing"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":false,"violation_type":"wrong_state","reason":"F1 Setup must complete before any UE-associated procedure","expected_result":"reject"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","IEs":{"TransactionID":"valid","gNB-DU-ID":"valid"},"direction":"gNB-DU -> gNB-CU","sender":"gNB-DU","legal":false,"violation_type":"duplicate_transaction","reason":"Setup transaction already open awaiting CU response","expected_result":"reject"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","IEs":{"TransactionID":"invalid","Cause":"missing"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":false,"violation_type":"transaction_mismatch","reason":"Response TransactionID must match the outstanding request","expected_result":"reject"},{"from":"F1_SETUP_COMPLETE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","IEs":{"TransactionID":"invalid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":false,"violation_type":"unsolicited","reason":"Interface already operational, no setup transaction open","expected_result":"reject"},{"from":"UE_CONTEXT_SETUP_COMPLETE","to":"UE_CONTEXT_SETUP_COMPLETE","MessageType":"UE_CONTEXT_SETUP_RESPONSE","IEs":{"gNB-CU-UE-F1AP-ID":"invalid","gNB-DU-UE-F1AP-ID":"invalid"},"direction":"gNB-DU -> gNB-CU","sender":"gNB-DU","legal":false,"violation_type":"unsolicited","reason":"No open UE context setup transaction","expected_result":"reject"}],"extras_kept":[],"audit":{"has_F1_SETUP_RESPONSE":true,"direction_encoded":["direction","sender"],"idle_f1resp_edges":[{"from":"IDLE","to":"IDLE","MessageType":"F1_SETUP_RESPONSE","IEs":{"TransactionID":"invalid","gNB-CU-RRC-Version":"valid"},"direction":"gNB-CU -> gNB-DU","sender":"gNB-CU","legal":false,"violation_type":"unsolicited","reason":"No F1 SETUP REQUEST outstanding on this F1-C interface instance","expected_result":"reject"}],"n_transitions":20,"n_states":8}},"show":[{"from":"IDLE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_FAILED","MessageType":"F1_SETUP_FAILURE","direction":"gNB-CU -> gNB-DU"},{"from":"F1_SETUP_FAILED","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"F1_SETUP_COMPLETE","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"F1_SETUP_COMPLETE","to":"GNB_DU_CONFIG_UPDATE_PENDING","MessageType":"GNB_DU_CONFIGURATION_UPDATE","direction":"gNB-DU -> gNB-CU"},{"from":"GNB_DU_CONFIG_UPDATE_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"GNB_DU_CONFIGURATION_UPDATE_ACKNOWLEDGE","direction":"gNB-CU -> gNB-DU"},{"from":"GNB_DU_CONFIG_UPDATE_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"GNB_DU_CONFIGURATION_UPDATE_FAILURE","direction":"gNB-CU -> gNB-DU"},{"from":"F1_SETUP_COMPLETE","to":"UE_CONTEXT_SETUP_PENDING","MessageType":"UE_CONTEXT_SETUP_REQUEST","direction":"gNB-CU -> gNB-DU"},{"from":"UE_CONTEXT_SETUP_PENDING","to":"UE_CONTEXT_SETUP_COMPLETE","MessageType":"UE_CONTEXT_SETUP_RESPONSE","direction":"gNB-DU -> gNB-CU"},{"from":"UE_CONTEXT_SETUP_PENDING","to":"F1_SETUP_COMPLETE","MessageType":"UE_CONTEXT_SETUP_FAILURE","direction":"gNB-DU -> gNB-CU"},{"from":"UE_CONTEXT_SETUP_COMPLETE","to":"UE_CONTEXT_RELEASE_PENDING","MessageType":"UE_CONTEXT_RELEASE_COMMAND","direction":"gNB-CU -> gNB-DU"}],"illegal":[{"from":"IDLE","to":"IDLE","MessageType":"F1_SETUP_RESPONSE","violation_type":"unsolicited","expected_result":"reject"},{"from":"IDLE","to":"IDLE","MessageType":"F1_SETUP_REQUEST","violation_type":"wrong_direction","expected_result":"reject"},{"from":"IDLE","to":"IDLE","MessageType":"UE_CONTEXT_SETUP_REQUEST","violation_type":"wrong_state","expected_result":"reject"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_REQUEST","violation_type":"duplicate_transaction","expected_result":"reject"},{"from":"F1_SETUP_PENDING","to":"F1_SETUP_PENDING","MessageType":"F1_SETUP_RESPONSE","violation_type":"transaction_mismatch","expected_result":"reject"},{"from":"F1_SETUP_COMPLETE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","violation_type":"unsolicited","expected_result":"reject"},{"from":"UE_CONTEXT_SETUP_COMPLETE","to":"UE_CONTEXT_SETUP_COMPLETE","MessageType":"UE_CONTEXT_SETUP_RESPONSE","violation_type":"unsolicited","expected_result":"reject"}],"funnel":[{"label":"S2","note":"DFS cap max_length=6, max_paths=200 (ARCANE shipped 10 \u2014 too low to reach responses)","count":16},{"label":"S3","note":"identical message-type sequences removed","after":15},{"label":"S4+S5","note":"ARCANE mutation probs = 0.3 (drop/reorder/add + IE flips)","after":22},{"label":"S6","note":"cap=400, uniform sample","after":22},{"label":"S7","note":"unsolicited F1_SETUP_RESPONSE (request dropped)","after":0},{"label":"S8","count":0,"note":"encodable via template + pycrate \u2014 wire cases surviving"},{"label":"R7","count":1,"note":"executed: unsolicited F1-Setup-Response replayed to the CU (run A: case 31)"}],"counts":{"paths":16,"unique":15,"mutated":22,"kept":22,"cu07_family":0},"base":{"states":8,"transitions":16},"refined":{"states":45,"transitions":53},"thinking_chars":97097,"raw_chars":25068,"pdrop":"ARCANE's model format allows only <b>one transition per (source, target)<\/b>: 4 of B's 20 edges \u2014 including its explicit illegal ones \u2014 were dropped as parallels at conversion."},"C":{"fsm":{"states":["TNL_ASSOCIATION_OPERATIONAL","AWAITING_F1_SETUP_RESPONSE","F1_SETUP_COMPLETE","F1_SETUP_FAILURE_RECEIVED","TIME_WAIT_BACKOFF","F1_SETUP_FAILED"],"transitions":[{"from":"TNL_ASSOCIATION_OPERATIONAL","to":"AWAITING_F1_SETUP_RESPONSE","MessageType":"F1_SETUP_REQUEST","Direction":"gNB-DU -> gNB-CU","Sender":"gNB-DU","Receiver":"gNB-CU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup (Procedure Code id-F1Setup, criticality reject; ASN.1 [1])","Precondition":"TNL association has become operational and F1 Setup is the first F1AP procedure triggered for this F1-C interface instance (TS 38.473 8.2.3.1); if F1-C transport is shared, one F1 Setup is issued per F1-C interface instance","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-DU ID":"valid","gNB-DU RRC Version":"valid","gNB-DU Name":"valid","gNB-DU Served Cells List":"valid","Transport Layer Address Info":"missing","BAP Address":"missing","Extended gNB-CU Name":"missing"},"Effect":"gNB-CU validates mandatory IEs (criticality reject) and answers with F1 SETUP RESPONSE (successful) or F1 SETUP FAILURE (unsuccessful); gNB-DU awaits the outcome","UEContextEffect":"Per 8.2.3.1 this procedure erases any existing application-level configuration data in both nodes and replaces it with the exchanged data, re-initialises the F1AP UE-related contexts (if any) and erases all related signalling connections, like a Reset procedure","SpecRef":"TS 38.473 8.2.3.1-8.2.3.2 (prose); ASN.1 [5] F1SetupRequestIEs (V16.3.1 lines 1480-1490)","Notes":"PRESENCE mandatory per ASN.1 [5]: Transaction ID, gNB-DU ID, gNB-DU RRC Version. IEs marked 'missing' are PRESENCE optional, absence is conformant. For NG-RAN the gNB-DU shall include gNB-DU System Information and TAI Slice Support List IEs inside Served Cell Information (within gNB-DU Served Cells List) per 8.2.3.2; Cell Direction IE optional, omitted = Bi-directional; RAN Area Code optional. Prose (V16.13.0) mandates 'Latest RRC Version Enhanced' in both F1 Setup messages, but that IE does not exist in ASN.1 V16.3.1 [5] (the compiled file), so it is not modelled. ASN.1 [5] names the optional name IE id-Extended-GNB-CU-Name whereas prose 8.2.3.2 refers to 'Extended gNB-DU Name' in the request; modelled per ASN.1."},{"from":"TNL_ASSOCIATION_OPERATIONAL","to":"AWAITING_F1_SETUP_RESPONSE","MessageType":"F1_SETUP_REQUEST","Direction":"gNB-DU -> gNB-CU","Sender":"gNB-DU","Receiver":"gNB-CU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup (Procedure Code id-F1Setup, criticality reject; ASN.1 [1])","Precondition":"As previous F1_SETUP_REQUEST transition, but gNB-DU omits all PRESENCE-optional IEs","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-DU ID":"valid","gNB-DU RRC Version":"valid","gNB-DU Name":"missing","gNB-DU Served Cells List":"missing","Transport Layer Address Info":"missing","BAP Address":"missing","Extended gNB-CU Name":"missing"},"Effect":"As previous F1_SETUP_REQUEST transition","UEContextEffect":"Per 8.2.3.1: erases/replaces application-level configuration data in both nodes, re-initialises F1AP UE-related contexts (if any), erases related signalling connections like a Reset","SpecRef":"TS 38.473 8.2.3.1-8.2.3.2; ASN.1 [5] F1SetupRequestIEs","Notes":"Conformant minimal request per ASN.1 [5]: only the three mandatory IEs are required; all optional IEs absent ('missing' = permitted absence). Prose 8.2.3.2 (NG-RAN) expects gNB-DU System Information / TAI Slice Support List inside the (here absent) Served Cells List; prose/ASN.1 presence conflict is resolved in favour of the ASN.1. The gNB-CU may still reply with F1 SETUP FAILURE per 8.2.3.3 if it cannot accept."},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","Direction":"gNB-CU -> gNB-DU","Sender":"gNB-CU","Receiver":"gNB-DU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup SUCCESSFUL OUTCOME (ASN.1 [1]; message definition 9.2.1.5, Direction: gNB-CU -> gNB-DU)","Precondition":"gNB-DU is in AWAITING_F1_SETUP_RESPONSE with a pending f1Setup transaction; gNB-CU accepts the setup; all PRESENCE-mandatory response IEs present and valid; response Transaction ID matches the pending request","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-CU RRC Version":"valid","gNB-CU Name":"valid","Cells to be Activated List":"valid","Transport Layer Address Info":"missing","Uplink BH Non-UP Traffic Mapping":"missing","BAP Address":"missing","Extended gNB-DU Name":"missing"},"Effect":"Exchanged data stored in both nodes and used as long as the TNL association is operational; the F1 interface is operational and other F1 messages may be exchanged (e.g. UE-associated signalling, gNB-DU Configuration Update 8.2.4). For each activated-list item the gNB-DU shall activate the cell and reconfigure the PCI where NR PCI is included; if Available PLMN List / Available SNPN ID List are received, the gNB-DU broadcasts only those PLMNs/SNPNs","UEContextEffect":"Per 8.2.3.1: erases/replaces application-level configuration data in both nodes, re-initialises F1AP UE-related contexts (if any), erases all related signalling connections like a Reset","SpecRef":"TS 38.473 8.2.3.2; 9.2.1.5 (Direction: gNB-CU -> gNB-DU); ASN.1 [4] F1SetupResponseIEs (V16.3.1 lines 1513-1523)","Notes":"PRESENCE mandatory per ASN.1 [4]: Transaction ID, gNB-CU RRC Version. Cells to be Activated List: 0..1 at message level, 1..maxCellingNBDU (512) items; per item: NR CGI M, NR PCI O, gNB-CU System Information O (shall be included for NG-RAN per 8.2.3.2), Available PLMN List O, Extended Available PLMN List O (only if Available PLMN List is included and more than 6 PLMNs are signalled), IAB Info IAB-donor-CU O, Available SNPN ID List O (if present, content of Available PLMN List / Extended Available PLMN List is ignored). ASN.1 V16.3.1 names the last IE id-Extended-GNB-DU-Name while prose table 9.2.1.5 says 'Extended gNB-CU Name'; modelled per ASN.1."},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","Direction":"gNB-CU -> gNB-DU","Sender":"gNB-CU","Receiver":"gNB-DU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup SUCCESSFUL OUTCOME (ASN.1 [1]; 9.2.1.5)","Precondition":"gNB-DU is in AWAITING_F1_SETUP_RESPONSE; gNB-CU accepts the setup; response Transaction ID matches the pending request; all optional IEs omitted","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-CU RRC Version":"valid","gNB-CU Name":"missing","Cells to be Activated List":"missing","Transport Layer Address Info":"missing","Uplink BH Non-UP Traffic Mapping":"missing","BAP Address":"missing","Extended gNB-DU Name":"missing"},"Effect":"As full F1_SETUP_RESPONSE success transition; no cells to be activated; F1 interface operational","UEContextEffect":"Per 8.2.3.1: erases/replaces application-level configuration data in both nodes, re-initialises F1AP UE-related contexts (if any), erases all related signalling connections like a Reset","SpecRef":"TS 38.473 8.2.3.2; 9.2.1.5; ASN.1 [4] F1SetupResponseIEs","Notes":"Conformant minimal successful outcome per ASN.1 [4]: only Transaction ID and gNB-CU RRC Version are PRESENCE mandatory; all other IEs PRESENCE optional and legitimately absent ('missing' = permitted absence, not an error)."},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","Direction":"gNB-CU -> gNB-DU","Sender":"gNB-CU","Receiver":"gNB-DU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup SUCCESSFUL OUTCOME (ASN.1 [1]; 9.2.1.5)","Precondition":"gNB-DU is in AWAITING_F1_SETUP_RESPONSE; the F1 SETUP REQUEST was received from an IAB-donor-DU (identification is up to gNB-CU implementation) and the gNB-CU supports IAB; gNB-CU accepts the setup; mandatory IEs present and valid; response Transaction ID matches the pending request","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-CU RRC Version":"valid","gNB-CU Name":"missing","Cells to be Activated List":"missing","Transport Layer Address Info":"missing","Uplink BH Non-UP Traffic Mapping":"missing","BAP Address":"valid","Extended gNB-DU Name":"missing"},"Effect":"As minimal success transition; additionally the gNB-DU shall, if supported, store the received BAP address and use it as specified in TS 38.340","UEContextEffect":"Per 8.2.3.1: erases/replaces application-level configuration data in both nodes, re-initialises F1AP UE-related contexts (if any), erases all related signalling connections like a Reset","SpecRef":"TS 38.473 8.2.3.2 (IAB paragraphs); 9.2.1.5; ASN.1 [4]","Notes":"8.2.3.2: if the F1 SETUP REQUEST is received from an IAB-donor-DU, the gNB-CU shall, if supported, include the BAP Address IE (PRESENCE optional in ASN.1 [4], conditionally mandatory here by procedure text)."},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_FAILURE_RECEIVED","MessageType":"F1_SETUP_FAILURE","Direction":"gNB-CU -> gNB-DU","Sender":"gNB-CU","Receiver":"gNB-DU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup UNSUCCESSFUL OUTCOME (ASN.1 [1])","Precondition":"gNB-DU is in AWAITING_F1_SETUP_RESPONSE; the gNB-CU cannot accept the setup (configuration not acceptable, or F1 SETUP REQUEST contained a missing/invalid mandatory IE with criticality reject); gNB-CU responds with F1 SETUP FAILURE and appropriate cause value; Time To Wait IE not included","IEs":{"Message Type":"valid","Cause":"valid","Time To Wait":"missing"},"Effect":"Unsuccessful outcome recorded at gNB-DU; the gNB-DU may reinitiate the F1 Setup towards the same gNB-CU without a mandated waiting period","UEContextEffect":"Per 8.2.3.1 the procedure erases/replaces application-level configuration data in both nodes and re-initialises F1AP UE-related contexts (if any), erasing related signalling connections like a Reset","SpecRef":"TS 38.473 8.2.3.3 (Figure 8.2.3.3-1); ASN.1 [1] UNSUCCESSFUL OUTCOME F1SetupFailure","Notes":"ASN.1 for F1SetupFailure is not in the extract; Cause is treated as mandatory ('appropriate cause value', 8.2.3.3). Time To Wait is PRESENCE optional per 8.2.3.3; its absence here means no minimum wait before reinitiation."},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"TIME_WAIT_BACKOFF","MessageType":"F1_SETUP_FAILURE","Direction":"gNB-CU -> gNB-DU","Sender":"gNB-CU","Receiver":"gNB-DU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup UNSUCCESSFUL OUTCOME (ASN.1 [1])","Precondition":"As F1_SETUP_FAILURE transition, but the gNB-CU includes the Time To Wait IE in the F1 SETUP FAILURE","IEs":{"Message Type":"valid","Cause":"valid","Time To Wait":"valid"},"Effect":"Unsuccessful outcome recorded; the gNB-DU shall wait at least the indicated time before reinitiating the F1 Setup towards the same gNB-CU","UEContextEffect":"Per 8.2.3.1: procedure-level erasure/replacement of application-level configuration data and re-initialisation of F1AP UE-related contexts (if any) like a Reset","SpecRef":"TS 38.473 8.2.3.3","Notes":"Time To Wait IE is optional per 8.2.3.3; its presence mandates the wait before reinitiation towards the same gNB-CU."},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_FAILED","MessageType":"F1_SETUP_RESPONSE","Direction":"gNB-CU -> gNB-DU","Sender":"gNB-CU","Receiver":"gNB-DU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup SUCCESSFUL OUTCOME received, but ASN.1-conformance violated","Precondition":"Message received while transaction pending decodes as F1 SETUP RESPONSE, but Transaction ID (PRESENCE mandatory, criticality reject per ASN.1 [4]) is absent","IEs":{"Message Type":"valid","Transaction ID":"missing","gNB-CU RRC Version":"valid","gNB-CU Name":"missing","Cells to be Activated List":"missing","Transport Layer Address Info":"missing","Uplink BH Non-UP Traffic Mapping":"missing","BAP Address":"missing","Extended gNB-DU Name":"missing"},"Effect":"f1Setup transaction aborted at the gNB-DU; successful outcome not achieved; the F1 interface is not operational and other F1 messages must not be exchanged","UEContextEffect":"Per 8.2.3.1 the procedure-level erasure/re-initialisation behaviour applies to the procedure in both nodes; at the gNB-DU the transaction is aborted locally without successful completion","SpecRef":"ASN.1 [4] F1SetupResponseIEs PRESENCE clauses (criticality reject); TS 38.473 8.2.3.2","Notes":"Missing Transaction ID additionally prevents matching the response to the pending request. No error-response message is defined at the gNB-DU for a malformed successful outcome; handled locally. F1_SETUP_FAILED is terminal in this model (no recovery is specified in the extract)."},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_FAILED","MessageType":"F1_SETUP_RESPONSE","Direction":"gNB-CU -> gNB-DU","Sender":"gNB-CU","Receiver":"gNB-DU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup SUCCESSFUL OUTCOME received, but ASN.1-conformance violated","Precondition":"F1 SETUP RESPONSE received while transaction pending, but gNB-CU RRC Version (PRESENCE mandatory, criticality reject per ASN.1 [4]) is absent","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-CU RRC Version":"missing","gNB-CU Name":"missing","Cells to be Activated List":"missing","Transport Layer Address Info":"missing","Uplink BH Non-UP Traffic Mapping":"missing","BAP Address":"missing","Extended gNB-DU Name":"missing"},"Effect":"f1Setup transaction aborted at the gNB-DU; F1 interface not operational","UEContextEffect":"Per 8.2.3.1: procedure-level erasure/re-initialisation of configuration data and UE-related contexts (if any) like a Reset; successful completion not achieved at the gNB-DU","SpecRef":"ASN.1 [4] PRESENCE clauses (criticality reject); TS 38.473 8.2.3.2","Notes":"gNB-CU RRC Version is one of only two PRESENCE-mandatory IEs in F1SetupResponseIEs; its absence violates the ASN.1 and the exchange requirements of 8.2.3.2. Handled locally; F1_SETUP_FAILED is terminal."},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_FAILED","MessageType":"F1_SETUP_RESPONSE","Direction":"gNB-CU -> gNB-DU","Sender":"gNB-CU","Receiver":"gNB-DU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup SUCCESSFUL OUTCOME received, but IE semantically invalid","Precondition":"F1 SETUP RESPONSE received while transaction pending; gNB-CU RRC Version IE present but semantically invalid (criticality reject per ASN.1 [4])","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-CU RRC Version":"invalid","gNB-CU Name":"missing","Cells to be Activated List":"missing","Transport Layer Address Info":"missing","Uplink BH Non-UP Traffic Mapping":"missing","BAP Address":"missing","Extended gNB-DU Name":"missing"},"Effect":"f1Setup transaction aborted at the gNB-DU; F1 interface not operational","UEContextEffect":"Per 8.2.3.1: procedure-level erasure/re-initialisation of configuration data and UE-related contexts (if any) like a Reset; successful completion not achieved at the gNB-DU","SpecRef":"ASN.1 [4] (id-GNB-CU-RRC-Version, criticality reject); TS 38.473 8.2.3.2","Notes":"Reject-criticality IEs must be valid for the successful outcome to be applied; an invalid value prevents F1_SETUP_COMPLETE. Handled locally; F1_SETUP_FAILED is terminal."},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","Direction":"gNB-CU -> gNB-DU","Sender":"gNB-CU","Receiver":"gNB-DU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup SUCCESSFUL OUTCOME (ASN.1 [1]; 9.2.1.5)","Precondition":"F1 SETUP RESPONSE received while transaction pending; gNB-CU Name IE present but with an abnormal/unusable value (criticality ignore per ASN.1 [4]); all PRESENCE-mandatory IEs present and valid; response Transaction ID matches the pending request","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-CU RRC Version":"valid","gNB-CU Name":"invalid","Cells to be Activated List":"missing","Transport Layer Address Info":"missing","Uplink BH Non-UP Traffic Mapping":"missing","BAP Address":"missing","Extended gNB-DU Name":"missing"},"Effect":"Procedure completes successfully as for the minimal response; the abnormal gNB-CU Name is not usable as a human-readable name; F1 interface operational","UEContextEffect":"Per 8.2.3.1: erases/replaces application-level configuration data in both nodes, re-initialises F1AP UE-related contexts (if any), erases all related signalling connections like a Reset","SpecRef":"ASN.1 [4] (id-gNB-CU-Name, criticality ignore); TS 38.473 8.2.3.2","Notes":"gNB-CU Name has criticality 'ignore' (ASN.1 [4]) and is only a human-readable name per 8.2.3.2, so an abnormal value does not abort the procedure. If the Extended gNB-CU/DU Name IE had been included, the gNB-DU shall ignore the gNB-CU Name (8.2.3.2)."},{"from":"F1_SETUP_FAILURE_RECEIVED","to":"AWAITING_F1_SETUP_RESPONSE","MessageType":"F1_SETUP_REQUEST","Direction":"gNB-DU -> gNB-CU","Sender":"gNB-DU","Receiver":"gNB-CU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup (new instance; ASN.1 [1], [5])","Precondition":"Previous F1 Setup attempt ended with F1 SETUP FAILURE without Time To Wait IE; the gNB-DU reinitiates the F1 Setup towards the same gNB-CU with a fresh Transaction ID","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-DU ID":"valid","gNB-DU RRC Version":"valid","gNB-DU Name":"valid","gNB-DU Served Cells List":"valid","Transport Layer Address Info":"missing","BAP Address":"missing","Extended gNB-CU Name":"missing"},"Effect":"New F1 Setup attempt initiated; gNB-DU awaits F1 SETUP RESPONSE or F1 SETUP FAILURE","UEContextEffect":"Per 8.2.3.1 each F1 Setup procedure erases/replaces existing application-level configuration data in both nodes and re-initialises F1AP UE-related contexts (if any) like a Reset","SpecRef":"TS 38.473 8.2.3.2 (initiation), 8.2.3.3 (reinitiation after failure); ASN.1 [5]","Notes":"No minimum wait is mandated when the F1 SETUP FAILURE did not include Time To Wait (8.2.3.3). Mandatory/optional IE pattern identical to the initial F1_SETUP_REQUEST transition."},{"from":"TIME_WAIT_BACKOFF","to":"AWAITING_F1_SETUP_RESPONSE","MessageType":"F1_SETUP_REQUEST","Direction":"gNB-DU -> gNB-CU","Sender":"gNB-DU","Receiver":"gNB-CU","Signalling":"non-UE-associated","ElementaryProcedure":"f1Setup (new instance; ASN.1 [1], [5])","Precondition":"At least the time indicated by the Time To Wait IE of the received F1 SETUP FAILURE has elapsed; the gNB-DU reinitiates the F1 Setup towards the same gNB-CU with a fresh Transaction ID","IEs":{"Message Type":"valid","Transaction ID":"valid","gNB-DU ID":"valid","gNB-DU RRC Version":"valid","gNB-DU Name":"valid","gNB-DU Served Cells List":"valid","Transport Layer Address Info":"missing","BAP Address":"missing","Extended gNB-CU Name":"missing"},"Effect":"New F1 Setup attempt initiated; gNB-DU awaits F1 SETUP RESPONSE or F1 SETUP FAILURE","UEContextEffect":"Per 8.2.3.1 each F1 Setup procedure erases/replaces existing application-level configuration data in both nodes and re-initialises F1AP UE-related contexts (if any) like a Reset","SpecRef":"TS 38.473 8.2.3.3 (Time To Wait); ASN.1 [5]","Notes":"The wait obligation ('shall wait at least for the indicated time') is the exit condition of TIME_WAIT_BACKOFF; leaving earlier would violate 8.2.3.3."}],"extras_kept":[],"audit":{"has_F1_SETUP_RESPONSE":true,"direction_encoded":["Direction","Sender"],"idle_f1resp_edges":[],"n_transitions":13,"n_states":6}},"show":[{"from":"TNL_ASSOCIATION_OPERATIONAL","to":"AWAITING_F1_SETUP_RESPONSE","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"TNL_ASSOCIATION_OPERATIONAL","to":"AWAITING_F1_SETUP_RESPONSE","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_FAILURE_RECEIVED","MessageType":"F1_SETUP_FAILURE","direction":"gNB-CU -> gNB-DU"},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"TIME_WAIT_BACKOFF","MessageType":"F1_SETUP_FAILURE","direction":"gNB-CU -> gNB-DU"},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_FAILED","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_FAILED","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_FAILED","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"AWAITING_F1_SETUP_RESPONSE","to":"F1_SETUP_COMPLETE","MessageType":"F1_SETUP_RESPONSE","direction":"gNB-CU -> gNB-DU"},{"from":"F1_SETUP_FAILURE_RECEIVED","to":"AWAITING_F1_SETUP_RESPONSE","MessageType":"F1_SETUP_REQUEST","direction":"gNB-DU -> gNB-CU"}],"illegal":[],"funnel":[{"label":"S2","note":"DFS cap max_length=6, max_paths=200 (ARCANE shipped 10 \u2014 too low to reach responses)","count":16},{"label":"S3","note":"identical message-type sequences removed","after":15},{"label":"S4+S5","note":"ARCANE mutation probs = 0.3 (drop/reorder/add + IE flips)","after":30},{"label":"S6","note":"cap=400, uniform sample","after":30},{"label":"S7","note":"unsolicited F1_SETUP_RESPONSE (request dropped)","after":1},{"label":"S8","count":1,"note":"encodable via template + pycrate \u2014 wire cases surviving"},{"label":"R7","count":1,"note":"executed: unsolicited F1-Setup-Response replayed to the CU (run A: case 31)"}],"counts":{"paths":16,"unique":15,"mutated":30,"kept":30,"cu07_family":1},"base":{"states":6,"transitions":7},"refined":{"states":44,"transitions":44},"thinking_chars":93867,"raw_chars":22028,"pdrop":"ARCANE's model format allows only <b>one transition per (source, target)<\/b>: 6 of C's 13 edges were parallel per-IE variants, dropped at conversion. The LLM's richer model literally does not fit the pipeline's container."}}</script>
+<style>.mono{font-family:var(--mono);font-size:12px;background:#fff;border:1px solid var(--hair);padding:0 4px}</style>
+<script>
+const DATA = JSON.parse(document.getElementById('data').textContent);
+let RUN = 'A';
+const cur = () => DATA[RUN];
+
+const RUNS = {
+  A:{title:'Faithful protocol modeler', blurb:'Neutral conformance-model conversion — closest to ARCANE’s implied prompt.',
+     note:'Direction survived; includes a protocol-analyst self-loop for a mid-session stray Response.'},
+  B:{title:'Security analyst', blurb:'Legality made explicit: 7 illegal edges, 3 unsolicited.',
+     note:'Did the best: modeled the CU07 attack as a first-class edge with expected_result: reject.'},
+  C:{title:'Formal-methods engineer', blurb:'Direction/Sender/Receiver on every transition; retry + backoff states.',
+     note:'Emitted parallel duplicate edges (per-IE variants) that ARCANE’s format cannot hold.'},
+};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+function chip(txt, cls){ return `<span class="chip ${cls}">${esc(txt)}</span>`; }
+
+function dirOf(t){
+  const raw = t.direction || t.Direction || '';
+  if (!raw) return '<span style="color:var(--ink2)">—</span>';
+  return chip(raw.startsWith('gNB-DU')?raw+' (DU→CU)':raw+' (CU→DU)', raw.startsWith('gNB-DU')?'du':'cd');
+}
+
+function renderEdges(){
+  const D = cur();
+  const tb = $('#edges tbody');
+  const rows = D.show.slice(0,9).map(t=>`<tr>
+    <td class="mono">${esc(t.from)}</td><td class="mono">${esc(t.MessageType)}</td>
+    <td class="mono">${esc(t.to)}</td><td>${dirOf(t)}</td></tr>`).join('');
+  tb.innerHTML = rows;
+  const iw = $('#illegal-wrap');
+  iw.innerHTML = D.illegal.length ? `
+    <h3 style="font-size:16px;margin:20px 0 4px">Modeled illegal edges <span style="color:var(--ink2);font-weight:400;font-size:13px">(framing ${RUN} only)</span></h3>
+    <div class="tw"><table><thead><tr><th>Where</th><th>Message</th><th>Violation</th><th>Expected result</th></tr></thead><tbody>
+    ${D.illegal.map(t=>`<tr><td class="mono">${esc(t.from)} → ${esc(t.to)}</td>
+      <td class="mono">${esc(t.MessageType)}</td><td>${chip(t.violation_type,'ill')}</td>
+      <td class="mono">${esc(t.expected_result)}</td></tr>`).join('')}
+    </tbody></table></div>` : '';
+}
+
+function renderFunnel(){
+  const D = cur();
+  const el = $('#fun');
+  const max = Math.max(...D.funnel.filter(s=>s.count!=null||s.after!=null).map(s=>s.count??s.after));
+  el.innerHTML = D.funnel.map(s=>{
+    const v = s.count!=null?s.count:s.after;
+    const sel7 = s.stage.startsWith('S7');
+    return `<div class="frow ${sel7?'sel7':''}">
+      <div class="fname">${s.label}</div>
+      <div class="fbar"><i style="width:${Math.max(3,Math.round(v/max*100))}%"></i></div>
+      <div class="fcnt num">${v}${sel7?' CU07 cases':''}</div>
+      <div class="fnote">${s.note}</div></div>`;
+  }).join('');
+}
+
+function renderAll(){
+  const d = DATA[RUN];
+  document.querySelectorAll('.card').forEach(c=>{
+    const on = c.dataset.run===RUN;
+    c.setAttribute('aria-pressed', on);
+    c.querySelector('.win').textContent = on?'▶ selected':'';
+  });
+  const facts = $('#facts');
+  facts.innerHTML = [
+    [d.fsm.states.length,'states'],
+    [d.fsm.transitions.length,'transitions'],
+    [d.base.states+'→'+d.refined.states,'refined states'],
+    [d.base.transitions+'→'+d.refined.transitions,'refined trans'],
+    [d.counts.cu07_family,'CU07 cases'],
+    [d.thinking_chars.toLocaleString()+' ch','LLM thinking']
+  ].map(([v,k])=>`<div class="fact"><div class="v num">${v}</div><div class="k">${k}</div></div>`).join('');
+  renderEdges(); renderFunnel();
+  $('#pdrop').innerHTML = d.pdrop;
+}
+
+// ---- console replay ----
+const LOG = [
+  ['p','$ fuzz_run.py A 31   ·   target 172.17.0.2:38472 (F1-C, SCTP, PPID 62)'],
+  ['p','payload: F1_SETUP_RESPONSE (unsolicited — sequence-mutation: drop)'],
+  ['p','        40010040000004004e00020001005240100680674e422d45757265636f6d2d4355'],
+  ['p','        0003001100000004000b4002f859000bc614e0000000aa000a80000000c74003110300'],
+  ['s','[socket] SCTP association ESTABLISHED'],
+  ['s','[socket] sctp_send: 68 bytes delivered'],
+  ['w','[MAC]   received F1 Setup Response from CU gNB-Eurecom-CU'],
+  ['w','[MAC]   CU uses RRC version 17.3.0'],
+  ['f','(process dies — no further output)'],
+  ['p','[monitor] polling /tmp/cu_exit.txt every 2 s …'],
+  ['f','[monitor] SOFTMODEM_EXIT=139'],
+  ['p','          139 = 128 + 11 = SIGSEGV'],
+  ['f','*** BUG FOUND: CU07 — unsolicited F1-Setup-Response ***'],
+];
+let replaying = false;
+function replay(){
+  if (replaying) return; replaying = true;
+  const body = $('#cbody'); body.innerHTML = '';
+  const btn = $('#replay'); btn.textContent = '… running'; btn.disabled = true;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  LOG.reduce((chain,[cls,txt])=>chain.then(()=>
+    new Promise(r=>{ body.innerHTML += `<span class="${cls}">${txt}\n</span>`;
+      body.scrollTop = body.scrollHeight; setTimeout(r, reduce?0:260); })), Promise.resolve())
+    .then(()=>{ body.innerHTML += `<span class="verdict">exit 139 — reproduced 2026-08-28 on the host machine</span>`;
+      btn.textContent = '▶ replay'; btn.disabled = false; replaying = false; });
+}
+$('#replay').addEventListener('click', replay);
+
+// ---- tabs ----
+const SPECNAMES = { t1:0, t2:1, t3:2, t4:3 };
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected', x===b));
+  for (const [id] of Object.entries(SPECNAMES)) document.getElementById(id).hidden = (id!==b.dataset.tab);
+}));
+
+// ---- run selector ----
+document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{ RUN = c.dataset.run; renderAll(); }));
+
+renderAll();
+replay();   // auto-run once on load
+</script>
+</body>
+</html>
