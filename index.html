@@ -208,6 +208,12 @@ abbr{cursor:help}
 .eatxt pre.log{font-family:var(--mono);font-size:12px;line-height:1.8;background:var(--paper);
   border:1px solid var(--hair);color:var(--ink);padding:10px 14px;overflow-x:auto;
   margin:0 0 10px;white-space:pre}
+.steps{margin:0;padding:0;list-style:none}
+.steps li{display:flex;gap:10px;padding:4px 0;align-items:baseline;font-size:13.5px;line-height:1.6;color:var(--ink2)}
+.steps .sn{font-family:var(--mono);font-size:11px;color:var(--ink2);flex:none;width:18px;text-align:right}
+.steps b{color:var(--ink)}
+.steps .bad,.steps .bad b,.steps .bad .sn{color:var(--fault)}
+.steps .miss .sn{color:var(--fault)}
 .dot{display:inline-block;width:7px;height:7px;margin-top:4px;flex:none}
 .dot.okd{background:var(--ok)} .dot.fld{background:var(--fault)}
 
@@ -252,6 +258,31 @@ abbr{cursor:help}
     its <em>content</em> is at fault. Only its <em>timing</em> is wrong: it arrives first, with
     no Request ever sent, something the spec (§8.2.3, §9.2.1.5 below) says cannot happen. A
     crashed process is the worst possible answer to a message like that.</p>
+
+    <div class="eabox">
+      <div class="earow">
+        <div class="ealab"><i class="dot okd"></i>Normal — how every honest session goes</div>
+        <div class="eatxt">
+          <ol class="steps">
+            <li><span class="sn">1</span><span>The gNB-DU connects to the CU over the F1-C interface — a plain network connection, nothing special yet.</span></li>
+            <li><span class="sn">2</span><span><b>D → C:</b> <span class="mono">F1-Setup-Request</span> — "hello, here is who I am and what I support."</span></li>
+            <li><span class="sn">3</span><span><b>C → D:</b> <span class="mono">F1-Setup-Response</span> — "hello back, here is what I accept."</span></li>
+            <li><span class="sn">4</span><span>Only now are the two partners. They carry phone traffic together — and <b>both processes keep running</b>, for years.</span></li>
+          </ol>
+        </div>
+      </div>
+      <div class="earow">
+        <div class="ealab"><i class="dot fld"></i>The bug — what the attack does</div>
+        <div class="eatxt">
+          <ol class="steps">
+            <li><span class="sn">1</span><span>A peer connects to the CU — same as step 1 above, still harmless on its own.</span></li>
+            <li class="bad"><span class="sn">2</span><span><b>Skips the hello.</b> No <span class="mono">F1-Setup-Request</span> is ever sent — the CU never registered a question.</span></li>
+            <li class="bad"><span class="sn">3</span><span><b>Peer → CU:</b> an <span class="mono">F1-Setup-Response</span> out of nowhere — the CU's <em>own answer line</em>, played back from a real capture, arriving with nothing to answer.</span></li>
+            <li class="bad"><span class="sn">4</span><span><b>The CU process dies</b> — <span class="mono">139 = 128 + 11 = SIGSEGV</span>. The tower stops; every connected phone loses the network until restart.</span></li>
+          </ol>
+        </div>
+      </div>
+    </div>
 
     <div class="tabs" role="tablist" aria-label="spec excerpts">
       <button role="tab" aria-selected="true" data-tab="t1">§8.2.3.1 General</button>
