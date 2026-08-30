@@ -47,10 +47,12 @@ header{border-bottom:1px solid var(--hair);background:var(--paper)}
   padding:2px 8px;background:var(--etsi-soft)}
 .eyebrow .t{font-size:12px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink2);font-weight:600}
 .stage h2{font-size:27px;font-weight:600;margin-bottom:10px}
-.lede{max-width:70ch;color:var(--ink2);margin-bottom:22px}
+.lede{border:1px solid var(--hair);background:#fff;padding:20px 26px;margin-bottom:22px;
+  color:var(--ink2);font-size:15.5px;line-height:1.72}
 .lede b,.lede a{color:var(--ink)}
 hr.rule{border:none;border-top:1px solid var(--hair);margin:44px 0 0}
-.note{font-size:13px;color:var(--ink2);max-width:78ch;margin-top:10px}
+.note{font-size:13px;color:var(--ink2);border:1px solid var(--hair);background:#fff;
+  padding:13px 18px;margin-top:14px;line-height:1.65}
 .note b{color:var(--ink)}
 
 /* ---------- tabs / spec viewer ---------- */
@@ -133,7 +135,7 @@ td.mono{font-family:var(--mono);font-size:12.5px}
 .cbody .w{color:var(--signal)}
 .cbody .f{color:var(--fault);font-weight:500}
 .cbody .verdict{display:inline-block;border:1px solid var(--fault);color:var(--fault);padding:2px 10px;margin-top:8px}
-.replay-note{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:var(--ink2);margin-top:10px}
+.replay-note{font-size:12.5px;color:var(--ink2);margin-top:10px;line-height:1.65}
 .replay-note .chip{border-color:var(--ok)}
 
 /* ---------- pipeline diagram ---------- */
@@ -192,19 +194,6 @@ abbr{cursor:help}
 .tstep{font-size:12.5px;color:var(--ink2);margin-top:8px;min-height:40px}
 .tstep b{color:var(--ink)}
 
-/* ---------- stage-0 anatomy strip ---------- */
-.anat{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--hair);background:#fff;margin:24px 0 0}
-@media(max-width:820px){.anat{grid-template-columns:1fr}}
-.acell{padding:15px 18px;border-right:1px solid var(--hair)}
-.acell:last-child{border-right:none}
-@media(max-width:820px){.acell{border-right:none;border-bottom:1px dashed var(--hair)}.acell:last-child{border-bottom:none}}
-.alab{font-family:var(--mono);font-size:11px;letter-spacing:.6px;text-transform:uppercase;
-  color:var(--ink);display:flex;align-items:flex-start;gap:8px}
-.alab .dot{margin-top:3px}
-.atxt{font-size:13px;line-height:1.62;color:var(--ink2);margin-top:7px}
-.atxt b{color:var(--ink)}
-.atxt .mono{font-size:11.5px}
-
 /* ---------- stage-0 expected/actual table ---------- */
 .eabox{border:1px solid var(--hair);background:#fff;margin-top:20px}
 .earow{display:grid;grid-template-columns:215px 1fr}
@@ -244,32 +233,27 @@ abbr{cursor:help}
   <section class="stage" id="s0">
     <div class="eyebrow"><span class="n">STAGE 0</span><span class="t">The bug &amp; the spec</span></div>
     <h2>One message the spec forbids</h2>
-    <p class="lede">Bug <b>CU07</b> — in ARCANE's Exp3 suite, verbatim: <em>"gNB-CU crashes when
-    receiving F1AP Setup Response"</em> (<code class="mono">test_runner.py:633</code>). The attack is
-    exactly one message: a peer connects to the CU's F1-C port and sends a <b>captured,
-    perfectly-formed F1-Setup-Response</b> — with no Setup-Request ever sent. Three facts make
-    this a real bug rather than a rough edge:</p>
+    <p class="lede">Bug <b>CU07</b>. ARCANE's own one-line description, verbatim: <em>"gNB-CU
+    crashes when receiving F1AP Setup Response"</em> (<code class="mono">test_runner.py:633</code>).
+    In plain English: the <b>gNB-CU is the brain of the cell tower</b> — it runs one program
+    (<span class="mono">nr-softmodem</span>) that every connected phone depends on. Its helper
+    below it (the gNB-DU) is supposed to say hello first, with an
+    <span class="mono">F1-Setup-Request</span>, and only then does the brain reply with an
+    <span class="mono">F1-Setup-Response</span>. The bug is what happens when someone skips the
+    hello and just sends the Response out of nowhere: instead of ignoring it — or replying with
+    an error, which is what a well-built program would do — the CU's <b>entire process crashes</b>
+    (SIGSEGV, exit code 139). One uninvited message. No hack, no malformed data — just a reply
+    that arrived without its question. The whole tower goes down, and every phone it was serving
+    loses the network until someone restarts it.</p>
 
-    <div class="anat" role="group" aria-label="anatomy of the CU07 crash">
-      <div class="acell">
-        <div class="alab"><i class="dot okd"></i>The message — format valid</div>
-        <div class="atxt">Re-encoded from a real capture: 68 bytes that decode cleanly as
-        <span class="mono">F1-Setup-Response · gNB-Eurecom-CU · RRC 17.3.0</span>. Nothing in the
-        payload is malformed.</div>
-      </div>
-      <div class="acell">
-        <div class="alab"><i class="dot fld"></i>The moment — forbidden</div>
-        <div class="atxt">It arrives as the <b>first and only</b> message of the association. No
-        Setup-Request precedes it — a session the spec can describe cannot contain it
-        (§8.2.3.1, §9.2.1.5 below).</div>
-      </div>
-      <div class="acell">
-        <div class="alab"><i class="dot fld"></i>The result — process death</div>
-        <div class="atxt">Not a rejected connection, not a dropped packet — the CU's whole
-        <span class="mono">nr-softmodem</span> process exits: <span class="mono">139 = 128 + 11 =
-        SIGSEGV</span>. Restart required; every served session lost.</div>
-      </div>
-    </div>
+    <p class="lede">That is what makes it a <b>real bug</b> and not a rough edge. The message
+    itself is perfect — 68 bytes re-encoded from a genuine capture, decoding cleanly as
+    <span class="mono">F1-Setup-Response · gNB-Eurecom-CU · RRC 17.3.0</span> — so nothing about
+    its <em>content</em> is at fault. Only its <em>timing</em> is wrong: it arrives first, with
+    no Request ever sent, something the spec (§8.2.3, §9.2.1.5 below) says cannot happen. A
+    crashed process is the worst possible answer to a message like that. The evidence below:
+    what the spec demands, and what the CU actually did.</p>
+
     <div class="tabs" role="tablist" aria-label="spec excerpts">
       <button role="tab" aria-selected="true" data-tab="t1">§8.2.3.1 General</button>
       <button role="tab" aria-selected="false" data-tab="t2">§9.2.1.5 F1 SETUP RESPONSE</button>
@@ -373,7 +357,7 @@ serves. 68 bytes the spec structurally forbids take down a cell site's control p
       <summary style="cursor:pointer;font-family:var(--mono);font-size:12.5px;color:var(--etsi)">
         show the exact prompt sent to the model</summary>
       <div class="note" id="prompt-when" style="margin:8px 0 4px"></div>
-      <pre class="paper" id="prompt-pre" style="max-width:82ch;font-size:13px;padding:16px 20px"></pre>
+      <pre class="paper" id="prompt-pre" style="font-size:13px;padding:16px 20px"></pre>
     </details>
 
     <p class="note"><b>Why this stage matters:</b> ARCANE's published seed model carries <em>no</em>
@@ -399,14 +383,14 @@ serves. 68 bytes the spec structurally forbids take down a cell site's control p
     <p class="note" id="pdrop"></p>
 
     <h3 style="font-size:16px;margin:26px 0 2px">Where do the numbers come from?</h3>
-    <p class="note" style="margin-top:2px">Click each term in the ledger — every number is computed
+    <p class="note">Click each term in the ledger — every number is computed
     live from the selected run's real artifacts (<code class="mono">fsm.json</code>,
     <code class="mono">initial_model.json</code>, <code class="mono">refined_fsm.dot</code>).</p>
     <div class="ledger" id="ledger" role="tablist"></div>
     <div class="ledcard" id="ledcard"></div>
 
     <h3 style="font-size:16px;margin:26px 0 2px">What <code class="mono">merge_pta</code> actually does, one trace at a time</h3>
-    <p class="note" style="margin-top:2px">Trace 0 of the 18, verbatim from ARCANE's
+    <p class="note">Trace 0 of the 18, verbatim from ARCANE's
     <code class="mono">sample_trace.json</code>: F1-Setup → Context Setup, 4 messages.</p>
     <div class="tracebox">
       <button id="traceGo">▶ replay trace 0</button>
