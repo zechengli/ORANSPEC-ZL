@@ -454,6 +454,11 @@ abbr{cursor:help}
     </div>
 
     <details style="margin:12px 0">
+      <summary>How refinement did it: <span class="enumns" id="re-sum"></span></summary>
+      <div id="re-box"></div>
+    </details>
+
+    <details style="margin:12px 0">
       <summary>All <span class="enumns" id="n-redges">44</span> refined edges, one by one</summary>
       <div class="tw"><table id="redges">
         <thead><tr><th>#</th><th>From</th><th>Message</th><th>To</th></tr></thead><tbody></tbody>
@@ -891,6 +896,80 @@ document.addEventListener('keydown', function(e){
   if (e.key==='Escape' && !$('#sgmodal').hidden) closeStateModal();
 });
 
+function renderRefine(){
+  const D = cur(), E = D.enum;
+  const seedSet = new Set(D.fsm.states);
+  const lab = {}; E.states.forEach(s=>lab[s.k]=s.l);
+  const seedN = seedSet.size, refN = E.states.length;
+  const rawE = D.fsm.transitions.length, baseE = D.base.transitions;
+  const varSt = E.states.filter(s=>/variant/.test(s.l)).length;
+  const addE = refN - seedN, freshSt = addE - varSt;
+  const cls = {seed:0, variant:0, fresh:0};
+  E.edges.forEach(function(e){
+    if (seedSet.has(e.t)) cls.seed++;
+    else if (/variant/.test(lab[e.t]||'')) cls.variant++;
+    else cls.fresh++;
+  });
+  const refE = E.edges.length;
+  $('#re-sum').textContent = seedN+'→'+refN+' states, '+rawE+'→'+refE+' edges — the merge rules';
+  let h = '';
+  h += '<p class="note" style="margin-top:10px"><b>Where the extra '+addE+' states come from.</b> '+
+    'The seed machine only knows what the LLM chose to write down from the spec — '+seedN+' milestones. ARCANE’s '+
+    'refiner (<span class="mono">merge\_pta</span>) then replays the captured traces, one message at a time, each walk starting over '+
+    'from the initial state. At every step it compares the arriving message with <em>every</em> outgoing edge of the state it is '+
+    'standing on, using one score — <span class="mono">0.6·(same message type? 1 : same family? 0.5 : 0) + '+
+    '0.4·(weighted IE agreement)</span> — and makes a three-way decision:</p>';
+  h += '<div class="tw"><table><thead><tr><th>score</th><th>what the refiner does</th><th>this framing</th></tr></thead><tbody>'+
+    '<tr><td class="mono">≤ 0.70</td><td><b>Carves a new state.</b> No outgoing edge looks like this message, so a brand-new '+
+    'state is created, labeled with the message type, plus the one edge that reaches it. This is how '+
+    'F1\_SETUP\_RESPONSE, UE\_CONTEXT\_\*, RESET and friends entered the machine — procedures the LLM never drew.</td>'+
+    '<td class="mono" style="white-space:nowrap">'+freshSt+' of '+addE+' carved states</td></tr>'+
+    '<tr><td class="mono">0.70 – 0.95</td><td><b>Carves a <span class="mono">\_variant</span> state.</b> The message <em>type</em> matches '+
+    'an outgoing edge, but its IEs disagree enough (content similarity &lt; 0.9): same message, different content — it gets '+
+    'its own copy of the state, suffixed <span class="mono">\_variant</span>.</td>'+
+    '<td class="mono" style="white-space:nowrap">'+varSt+' of '+addE+'</td></tr>'+
+    '<tr><td class="mono">&gt; 0.95</td><td><b>Merges, no growth.</b> The trace message is absorbed into the existing edge '+
+    '(IEs it knew are kept, new ones copied in) and the walk continues to that edge’s target. This is what kept the machine’s seed spine alive.</td>'+
+    '<td class="mono" style="white-space:nowrap">0 added</td></tr>'+
+    '</tbody></table></div>';
+  h += '<p class="note"><b>The ripple rule — why whole suffixes get copied.</b> A carved state has no outgoing edges yet, and '+
+    'the walk <em>moves onto it</em>. So the trace’s next message has nothing to compare against and is forced to carve again — '+
+    'one surprising message can drag its whole tail of follow-ups into the machine as fresh states.</p>';
+  h += '<p class="note"><b>Both numbers, the same way.</b> States: '+seedN+' seed + '+addE+' carved out of traces = '+refN+'. '+
+    'Edges: '+rawE+' raw LLM transitions collapse to '+baseE+' after parallel copies are removed (see the drawing above), and every '+
+    'carved state arrives tied to exactly one edge — the message that created it — so edges grow by the same '+addE+': '+
+    baseE+' + '+addE+' = '+refE+'. The new edges end on <b>'+cls.fresh+'</b> brand-new message states, <b>'+cls.variant+
+    '</b> <span class="mono">\_variant</span> copies, and <b>'+cls.seed+'</b> original seed states.</p>';
+  // one state, watched closely: the seed state refinement grew the most
+  let best = null, bestN = -1;
+  E.edges.forEach(function(e){
+    if (!seedSet.has(e.f)) return;
+    const n = E.edges.filter(x=>x.f===e.f).length;
+    if (n > bestN){ bestN = n; best = e.f; }
+  });
+  if (best){
+    const seedOut = new Set(D.fsm.transitions.filter(t=>t.from===best).map(t=>t.to)).size;
+    h += '<p class="note" style="margin-top:14px"><b>One state, watched closely: '+esc(best)+'.</b> '+
+      'Left the seed with '+seedOut+' outgoing edge'+(seedOut===1?'':'s')+'; after refinement it walks out '+
+      E.edges.filter(e=>e.f===best).length+' ways — every arrow, and why it exists:</p>';
+    h += '<div class="tw"><table><thead><tr><th>to state</th><th>message</th><th>why this edge exists</th></tr></thead><tbody>'+
+      E.edges.filter(e=>e.f===best).map(function(e){
+        const tgt = lab[e.t]||e.t;
+        let why;
+        if (seedSet.has(e.t)) why = 'seed edge kept — trace messages that matched it (score &gt; 0.9) merged in';
+        else if (/variant/.test(tgt)) why = '<span class="mono">\_variant</span> — same message type, IEs disagreed (0.70–0.95 band)';
+        else why = 'carved fresh — nothing at '+esc(best)+' scored over 0.70 for this message';
+        return '<tr><td class="mono">'+esc(e.t)+(tgt!==e.t?' <span style="color:var(--ink2)">('+esc(tgt)+')</span>':'')+
+          '</td><td class="mono"><b>'+esc(e.m)+'</b></td><td>'+why+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+  h += '<p class="note"><b>Why this matters for the bug.</b> Everything downstream — path enumeration, the drop mutation, '+
+    'the CU07 cases — walks this refined machine, not the seed. The growth is the room the fuzzer operates in: without the '+
+    addE+' traced states there would be no Response-carrying paths to mutate, and nothing for the delete-a-Request move to '+
+    'turn into an unsolicited F1-Setup-Response. No refinement, no CU07.</p>';
+  $('#re-box').innerHTML = h;
+}
+
 function renderEnum(){
   const D = cur(), E = D.enum;
   $('#enum-run').textContent = RUN;
@@ -901,6 +980,7 @@ function renderEnum(){
   $('#n-rstates').textContent = E.states.length;
   $('#n-redges').textContent = E.edges.length;
   $('#n-cu07').textContent = E.cu07.length;
+  renderRefine();
   const seedSet = new Set(D.fsm.states);
   $('#st-chips').innerHTML = E.states.map(function(s){
     const isSeed = seedSet.has(s.k);
