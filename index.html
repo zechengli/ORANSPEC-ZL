@@ -239,42 +239,37 @@ abbr{cursor:help}
   <section class="stage" id="s0">
     <div class="eyebrow"><span class="n">STAGE 0</span><span class="t">The bug &amp; the spec</span></div>
     <h2>One message the spec forbids</h2>
-    <p class="lede">Bug <b>CU07</b> (<code class="mono">test_runner.py:633</code>). The
-    <b>gNB-CU is the brain of the cell tower</b> — one program that every phone on the tower
-    depends on. A helper below it (the gNB-DU) is supposed to say hello first
-    (<span class="mono">F1-Setup-Request</span>); only then does the CU reply
-    (<span class="mono">F1-Setup-Response</span>). The bug: if someone skips the hello and sends
-    the reply anyway, the CU does not ignore it or send an error — <b>the whole program
-    crashes</b> (SIGSEGV, exit 139). One message, nothing malformed, and the tower goes down
-    until someone restarts it.</p>
+    <p class="lede">Bug <b>CU07</b> (<code class="mono">test_runner.py:633</code>). The gNB-CU is
+    the tower's control program. Its helper (the gNB-DU) must say hello first
+    (<span class="mono">F1-Setup-Request</span>); the CU then answers
+    (<span class="mono">F1-Setup-Response</span>). The bug: if a peer sends the answer without
+    the hello, the CU <b>crashes</b> (SIGSEGV, exit 139). One message takes the tower down.</p>
 
-    <p class="lede">That is what makes it a <b>real bug</b> and not a rough edge. The message
-    itself is perfect — 68 bytes re-encoded from a genuine capture, decoding cleanly as
-    <span class="mono">F1-Setup-Response · gNB-Eurecom-CU · RRC 17.3.0</span> — so nothing about
-    its <em>content</em> is at fault. Only its <em>timing</em> is wrong: it arrives first, with
-    no Request ever sent, something the spec (§8.2.3, §9.2.1.5 below) says cannot happen. A
-    crashed process is the worst possible answer to a message like that.</p>
+    <p class="lede">That makes it a <b>real bug</b>, not a rough edge. The message is a perfect
+    copy of a real one — nothing wrong in its content. Only its <em>timing</em> is wrong: it
+    arrives first, with no hello ever sent (§8.2.3, §9.2.1.5 below). No working program should
+    crash over that.</p>
 
     <div class="eabox">
       <div class="earow">
-        <div class="ealab"><i class="dot okd"></i>Normal — how every honest session goes</div>
+        <div class="ealab"><i class="dot okd"></i>Normal — how it should go</div>
         <div class="eatxt">
           <ol class="steps">
-            <li><span class="sn">1</span><span>The gNB-DU connects to the CU over the F1-C interface — a plain network connection, nothing special yet.</span></li>
-            <li><span class="sn">2</span><span><b>D → C:</b> <span class="mono">F1-Setup-Request</span> — "hello, here is who I am and what I support."</span></li>
-            <li><span class="sn">3</span><span><b>C → D:</b> <span class="mono">F1-Setup-Response</span> — "hello back, here is what I accept."</span></li>
-            <li><span class="sn">4</span><span>Only now are the two partners. They carry phone traffic together — and <b>both processes keep running</b>, for years.</span></li>
+            <li><span class="sn">1</span><span>The DU connects to the CU.</span></li>
+            <li><span class="sn">2</span><span><b>D → C:</b> <span class="mono">F1-Setup-Request</span> — "hello."</span></li>
+            <li><span class="sn">3</span><span><b>C → D:</b> <span class="mono">F1-Setup-Response</span> — "hello back."</span></li>
+            <li><span class="sn">4</span><span><b>Both keep running.</b> Traffic flows.</span></li>
           </ol>
         </div>
       </div>
       <div class="earow">
-        <div class="ealab"><i class="dot fld"></i>The bug — what the attack does</div>
+        <div class="ealab"><i class="dot fld"></i>The bug — what happens</div>
         <div class="eatxt">
           <ol class="steps">
-            <li><span class="sn">1</span><span>A peer connects to the CU — same as step 1 above, still harmless on its own.</span></li>
-            <li class="bad"><span class="sn">2</span><span><b>Skips the hello.</b> No <span class="mono">F1-Setup-Request</span> is ever sent — the CU never registered a question.</span></li>
-            <li class="bad"><span class="sn">3</span><span><b>Peer → CU:</b> an <span class="mono">F1-Setup-Response</span> out of nowhere — the CU's <em>own answer line</em>, played back from a real capture, arriving with nothing to answer.</span></li>
-            <li class="bad"><span class="sn">4</span><span><b>The CU process dies</b> — <span class="mono">139 = 128 + 11 = SIGSEGV</span>. The tower stops; every connected phone loses the network until restart.</span></li>
+            <li><span class="sn">1</span><span>A peer connects to the CU.</span></li>
+            <li class="bad"><span class="sn">2</span><span><b>No hello.</b> No <span class="mono">F1-Setup-Request</span> is sent.</span></li>
+            <li class="bad"><span class="sn">3</span><span><b>Peer → CU:</b> an <span class="mono">F1-Setup-Response</span> anyway — a real one, played back.</span></li>
+            <li class="bad"><span class="sn">4</span><span><b>The CU crashes</b> — <span class="mono">139 = 128 + 11 = SIGSEGV</span>. Tower down.</span></li>
           </ol>
         </div>
       </div>
