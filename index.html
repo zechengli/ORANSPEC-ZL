@@ -844,25 +844,38 @@ abbr{cursor:help}
     <em>performed</em> best is a separate question — see the Conclusion.</p>
 
     <h3 style="font-size:16px;margin:26px 0 2px">我的解读</h3>
-    <p class="note">一个提示词要完整传达开发者的意图，要说清七件事：①<b>面向谁</b>——给模型一个
-    身份（"protocol engineer"），它就用这一行的惯例来填空，C 没给角色，模型只能从"i need one of
-    those state machine things"里猜；②<b>明确的结果</b>——"finite state machine"是有标准含义的名词，
-    "one of those state machine things"是半个名词；③<b>目的</b>——"for conformance testing"这一个
-    短语让后面每个选择都有了判断标准，B 通篇不说目的，就成了为了严谨而严谨；④<b>核心词汇</b>——
-    A 点名 IE validity（valid / invalid / missing），恰好是后面 mutation pass 会翻转、流水线真正消费
-    的词汇，C 一个 IE 都没提，结果 0/7 条边带 IE 列表；⑤<b>输出的契约</b>——精确 JSON、"no prose
-    outside the JSON"是合同，"i think the format is something like…"是把合同写成疑问句；⑥<b>范围</b>——
-    具体到协议和过程（F1 Setup + UE-context），而不是"the f1 setup part… whatever you find"，说完
-    "all of them"又用"dont spend too much effort on the details"自己打脸；⑦<b>具体化</b>——指到源头
-    （"from the message-definition tables"），抽象的要求只得到抽象的回答，具体的要求才得到可检查
-    的回答。</p>
-    <p class="note">所以有两条路线：把提示词说得更准（A 的路线），产出就更准、更可检查；或者把模型
-    提前重新训练得更小更专，把知识从提示词搬进权重里，以后不用每次都说清楚——本实验只能走第一条路
-    （这台机器只连得上 glm-5.3-flash）。但本页实测还有一个转折：<b>提示词质量并没有决定 CU07 的
-    发现</b>——C 那个烂提示词同样产出 2 个 CU07 家族用例，发现本身靠的是 merge_pta、max_paths
-    补丁和与种子无关的 mutation。提示词真正决定的是<b>种子的可信度</b>：C 碰对了答案，但它的种子里
-    有把本地定时器当消息的伪迁移、没有 IE 列表，经不起检查；A 的价值不是"找到更多"，而是每一步都
-    留了可以回头验证的证据。<b>更准的提示词买到的是可检查性，微调买到的是省话，而发现本身，在这条
+    <p class="note">提示词对结果的影响，可以压缩成三层：<b>一、把意图说全</b>（七件事，缺一件模型
+    就猜一件）；<b>二、两条路线</b>（说全之外，还有把知识搬进模型权重的路）；<b>三、一个转折</b>
+    （在这条流水线里，提示词其实没有决定发现）。最后是一句话总结。</p>
+
+    <p class="note"><b>一 · 把意图说全 —— 七件事：</b></p>
+    <ol class="note" style="margin:2px 0 0;padding:14px 20px 14px 42px;font-size:13px;line-height:1.9">
+      <li><b>面向谁</b>——给模型一个身份："protocol engineer"，它就用这一行的惯例来填空；C 没给角色，
+      模型只能从"i need one of those state machine things"里猜。</li>
+      <li><b>要什么</b>——"finite state machine"是有标准含义的名词，"one of those state machine
+      things"只是半个名词。</li>
+      <li><b>为什么</b>——"for conformance testing"一个短语，让后面每个选择都有了判断标准；B 通篇
+      不说目的，就成了为了严谨而严谨。</li>
+      <li><b>用什么词汇</b>——A 点名 IE validity（valid / invalid / missing），恰好是下游 mutation
+      pass 会翻转、流水线真正消费的字段；C 一个 IE 都没提，种子 0/7 条边带 IE 列表。</li>
+      <li><b>按什么格式</b>——精确 JSON、"no prose outside the JSON"是合同；"i think the format is
+      something like…"是把合同写成疑问句。</li>
+      <li><b>做到哪</b>——"at least the F1 Setup procedure and the UE-context procedures"；C 一边说
+      "all of them, whatever you find"，一边说"dont spend too much effort on the details"，自己打脸。</li>
+      <li><b>照哪取材</b>——"from the message-definition tables"，指到源头；抽象的要求只得到抽象的
+      回答，具体的要求才得到可检查的回答。</li>
+    </ol>
+
+    <p class="note"><b>二 · 两条路线：</b>把提示词说得更准（A 的路线），产出就更准、更可检查；或者
+    把模型提前重新训练得更小更专，把知识从提示词搬进权重里，以后不用每次都说清楚。本实验只能走
+    第一条——这台机器只连得上 glm-5.3-flash。</p>
+
+    <p class="note"><b>三 · 一个转折：</b>提示词质量并没有决定 CU07 的发现——C 那个烂提示词同样产出
+    2 个 CU07 家族用例，发现本身靠的是 merge_pta、max_paths 补丁和与种子无关的 mutation。提示词
+    真正决定的是<b>种子的可信度</b>：C 碰对了答案，但它的种子里有把本地定时器当消息的伪迁移、没有
+    IE 列表，经不起检查；A 的价值不是"找到更多"，而是每一步都留了可以回头验证的证据。</p>
+
+    <p class="note"><b>一句话总结：更准的提示词买到的是可检查性，微调买到的是省话，而发现本身，在这条
     流水线里靠的是后处理。</b></p>
   </section>
 
