@@ -284,10 +284,7 @@ abbr{cursor:help}
       <button role="tab" aria-selected="false" data-tab="t3">§8.2.3.4 Abnormal</button>
       <button role="tab" aria-selected="false" data-tab="t4">ASN.1 v16.3.1</button>
     </div>
-    <pre class="paper" id="t1"><span class="hl">The purpose of the F1 Setup procedure is to exchange application level data needed for the
-gNB-DU and the gNB-CU to correctly interoperate on the F1 interface. This procedure shall be
-the first F1AP procedure triggered for the F1-C interface instance after a TNL association has
-become operational.</span>
+    <pre class="paper" id="t1"><span class="hl">The purpose of the F1 Setup procedure is to exchange application level data needed for the gNB-DU and the gNB-CU to correctly interoperate on the F1 interface. This procedure shall be the first F1AP procedure triggered for the F1-C interface instance after a TNL association has become operational.</span>
 
 <span style="color:var(--ink2)">        — ETSI TS 138 473 V16.13.0, §8.2.3.1 (p. 25)</span></pre>
     <pre class="paper" id="t2" hidden>This message is sent by the gNB-CU to transfer information associated to an F1-C interface instance.
@@ -296,16 +293,14 @@ become operational.</span>
 
 <span style="color:var(--ink2)">        — ETSI TS 138 473 V16.13.0, §9.2.1.5 (p. 93)</span>
 
-<span class="hl">The Response may therefore <b>only ever flow CU → DU</b>. Arriving from a DU with no Request
-outstanding, it cannot exist in an honest session — a compliant CU discards it.</span></pre>
+<span class="hl">The Response may therefore <b>only ever flow CU → DU</b>. Arriving from a DU with no Request outstanding, it cannot exist in an honest session — a compliant CU discards it.</span></pre>
     <pre class="paper" id="t3" hidden>8.2.3.4   Abnormal Conditions
 
 <span class="hl">Not applicable.</span>
 
 <span style="color:var(--ink2)">        — ETSI TS 138 473 V16.13.0, §8.2.3.4 (p. 28)</span>
 
-<span class="hl">The spec defines <b>no</b> recovery behaviour for a broken F1 Setup exchange — implementations
-get no guidance here, which is exactly where fuzzers hunt.</span></pre>
+<span class="hl">The spec defines <b>no</b> recovery behaviour for a broken F1 Setup exchange — implementations get no guidance here, which is exactly where fuzzers hunt.</span></pre>
     <pre class="asn" id="t4" hidden><span class="c">-- TS 38.473 v16.3.1 (the ASN.1 the target CU was compiled against)</span>
 <span class="k">f1Setup</span> F1AP-ELEMENTARY-PROCEDURE ::= {
     INITIATING MESSAGE       F1SetupRequest      <span class="c">-- DU → CU</span>
