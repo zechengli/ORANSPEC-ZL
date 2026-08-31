@@ -599,7 +599,7 @@ abbr{cursor:help}
           <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
           <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
         </svg><div class="fcap">after step 5 · guards on every edge — direction, transaction match, IE presence; Time&nbsp;To&nbsp;Wait stays a timer, never a message</div></div>
-        <div class="eamy"><p class="myhint">（第 5 步的解读，待写）</p></div>
+        <div class="eamy"><p>第 5 步：4 个东西要定好。1. 消息类型 2. 方向（第一步就定好的）3. Transaction-ID 的匹配 4. 把 ASN.1 的 presence 子句补全，必要的 IE 都要在。如果这 4 个里面任何一个没搞好，这条消息就应该被扔掉（discard + Error Indication），但机器停在原状态，在途的 transaction 继续等它真正的答案。</p></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>6 · keep the machine honest: one procedure, IEs are data</div>
