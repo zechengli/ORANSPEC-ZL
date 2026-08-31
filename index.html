@@ -264,6 +264,9 @@ abbr{cursor:help}
 .tracebox button{font-family:var(--mono);font-size:12px;background:var(--etsi);color:#fff;
   border:none;padding:7px 16px;cursor:pointer}
 .tracebox button:hover{filter:brightness(1.12)}
+#enumGo{font-family:var(--mono);font-size:12px;background:var(--etsi);color:#fff;border:none;
+  border-radius:6px;padding:8px 14px;cursor:pointer;margin:6px 0 2px}
+#enumGo:hover{filter:brightness(1.12)}
 .tracebox button:disabled{background:var(--hair);color:var(--ink2);cursor:wait}
 .tlane{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:64px;margin:16px 0 10px}
 .tnode{border:1px solid var(--etsi);background:var(--etsi-soft);color:var(--etsi);
@@ -759,6 +762,8 @@ abbr{cursor:help}
     <div id="illegal-wrap"></div>
 
     <h3 style="font-size:16px;margin:26px 0 2px">Enumerate the seed — framing <span id="enum-run">A</span>, nothing hidden</h3>
+    <button id="enumGo" type="button">▶ draw the seed machine + per-state graphs</button>
+    <div id="enum-body" hidden>
 
     <div class="fsvgwrap">
       <svg id="fsm-svg" viewBox="0 0 940 380" role="img" aria-label="seed FSM drawing"></svg>
@@ -776,6 +781,7 @@ abbr{cursor:help}
       <div class="fsvgcap">Each seed state on its own: the state centered (<span style="color:var(--etsi);font-weight:600">blue</span>),
       every transition that touches it — arrows in, arrows out, self-loops as circles on the left
       (one circle per raw copy the LLM wrote; see the legend in the drawing above).</div>
+    </div>
     </div>
 
     <p class="note"><b>Why this stage matters:</b> ARCANE's published seed model carries <em>no</em>
@@ -1482,11 +1488,11 @@ function renderRefine(){
   $('#re-box').innerHTML = h;
 }
 
+let enumOpen = false;
 function renderEnum(){
   const D = cur(), E = D.enum;
   $('#enum-run').textContent = RUN;
-  renderFsmSvg();
-  renderSeedGraphs();
+  if (enumOpen){ renderFsmSvg(); renderSeedGraphs(); }
   $('#n-rstates').textContent = E.states.length;
   $('#n-redges').textContent = E.edges.length;
   $('#n-cu07').textContent = E.cu07.length;
@@ -1734,6 +1740,12 @@ document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',
 // ---- run selector ----
 document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{ RUN = c.dataset.run; renderAll(); }));
 $('#traceGo').addEventListener('click', playTrace);
+$('#enumGo').addEventListener('click', function(){
+  enumOpen = true;
+  $('#enumGo').hidden = true;
+  $('#enum-body').hidden = false;
+  renderFsmSvg(); renderSeedGraphs();
+});
 
 const WIRE = '40010040000004004e00020001005240100680674e422d45757265636f6d2d43550003001100000004000b4002f859000bc614e0000000aa000a80000000c74003110300';
 const groups = WIRE.match(/.{4}/g) || [];
