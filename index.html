@@ -215,7 +215,7 @@ abbr{cursor:help}
 .steps .bad,.steps .bad b,.steps .bad .sn{color:var(--fault)}
 .steps .miss .sn{color:var(--fault)}
 .dot{display:inline-block;width:7px;height:7px;margin-top:4px;flex:none}
-.dot.okd{background:var(--ok)} .dot.fld{background:var(--fault)}
+.dot.okd{background:var(--ok)} .dot.fld{background:var(--fault)} .dot.bl{background:var(--etsi)}
 
 </style>
 </head>
@@ -262,6 +262,16 @@ abbr{cursor:help}
             <li class="bad"><span class="sn">2</span><span><b>No hello.</b> No <span class="mono">F1-Setup-Request</span> is sent.</span></li>
             <li class="bad"><span class="sn">3</span><span><b>Peer → CU:</b> an <span class="mono">F1-Setup-Response</span> anyway — a real one, played back.</span></li>
             <li class="bad"><span class="sn">4</span><span><b>The CU crashes</b> — <span class="mono">139 = 128 + 11 = SIGSEGV</span>. Tower down.</span></li>
+          </ol>
+        </div>
+      </div>
+      <div class="earow">
+        <div class="ealab"><i class="dot bl"></i>Supposed to be — correct handling of this bug situation</div>
+        <div class="eatxt">
+          <ol class="steps">
+            <li><span class="sn">1</span><span><b>Check who is connecting.</b> A peer the CU does not know and does not trust never gets in at all — no connection, nothing to exploit.</span></li>
+            <li><span class="sn">2</span><span><b>Wrong message? Keep running, kick the peer.</b> If an accepted peer skips the hello or sends anything unexpected, the CU refuses it (answer with <span class="mono">F1-Setup-Failure</span>), closes <em>only that one connection</em>, and stays healthy.</span></li>
+            <li><span class="sn">3</span><span><b>Everyone else is untouched.</b> Real DUs keep working, phones stay online — one bad peer costs one rejected connection, never the tower.</span></li>
           </ol>
         </div>
       </div>
