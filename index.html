@@ -106,6 +106,13 @@ details>div, details>.tw{margin:0}
 .custep .csie{font-size:11.5px;color:var(--ink2)}
 .custep.bad .csm,.custep.bad .csi{color:var(--fault)}
 
+.sgcard{border-top:1px dashed var(--hair);padding:12px 8px 4px}
+#seedgraphs .sgcard:first-child{border-top:none;padding-top:4px}
+.sghead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;padding:0 6px 6px}
+.sgname{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+.sgname .sgi{color:var(--etsi);margin-right:6px;font-weight:500}
+.sgdesc{font-size:11.5px;color:var(--ink2)}
+.sgcard svg{display:block;width:100%;max-width:100%;height:auto}
 /* ---------- cards / selector ---------- */
 .sel{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0}
 @media(max-width:760px){.sel{grid-template-columns:1fr}}
@@ -394,6 +401,12 @@ abbr{cursor:help}
       <div class="fsvgcap">The <span class="mono" id="seed-n">4</span>-state seed machine with all <span class="mono" id="seed-e">11</span> LLM transitions — parallel edges drawn as stacked arcs, self-loops as circles.</div>
     </div>
 
+    <div class="fsvgwrap">
+      <div id="seedgraphs"></div>
+      <div class="fsvgcap">Each seed state on its own: the state centered (<span style="color:var(--etsi);font-weight:600">blue</span>),
+      every transition that touches it — arrows in, arrows out, self-loops as circles on the left.</div>
+    </div>
+
     <details style="margin:12px 0">
       <summary>All <span class="enumns" id="n-rstates">41</span> refined states, one by one</summary>
       <div class="stchips" id="st-chips"></div>
@@ -673,12 +686,82 @@ function renderFsmSvg(){
   svg.innerHTML = '<defs><marker id="arr" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">'+
     '<path d="M0,0 L9,4.5 L0,9 z" fill="var(--etsi)"/></marker></defs>' + svgOut;
 }
+function renderSeedGraphs(){
+  const D = cur(), S = D.fsm.states, T = D.fsm.transitions;
+  const SEEDDESC = {
+    IDLE: 'before the hello — a peer is on the port, nothing negotiated yet',
+    F1_SETUP_PENDING: 'the hello arrived — the CU is deciding what to answer',
+    F1_SETUP_COMPLETE: 'setup succeeded — the CU accepted the DU, normal operation',
+    F1_SETUP_FAILURE: 'setup rejected — the CU answered with a failure message'
+  };
+  const W = 640, rowH = 62;
+  $('#seedgraphs').innerHTML = S.map(function(st, si){
+    const others = {}, loops = [];
+    T.forEach(function(t){
+      if (t.from===st && t.to===st){ loops.push(t.MessageType); return; }
+      if (t.to===st) (others[t.from]=others[t.from]||[]).push(['in', t.MessageType]);
+      if (t.from===st) (others[t.to]=others[t.to]||[]).push(['out', t.MessageType]);
+    });
+    const names = Object.keys(others);
+    const h = Math.max(120, (names.length-1>0 ? (names.length-1)*rowH : 0) + 96);
+    const cy = h/2;
+    const fs = st.length>20 ? 8.4 : 9.5;
+    const nbw = n => Math.max(70, n.length*fs*0.96 + 20);
+    const lw = nbw(st), loopsW = loops.length ? 26 + 22*(loops.length-1) : 0;
+    const ccx = 34 + lw/2 + 12 + loopsW;
+    const bh = 34;
+    let g = '';
+    names.forEach(function(n, i){
+      const y = cy + (i - (names.length-1)/2)*rowH;
+      const onw = nbw(n > 20 ? n : n);
+      const ofs = n.length>20 ? 8.4 : 9.5;
+      const onw2 = Math.max(70, n.length*ofs*0.96 + 20);
+      const ox = W - 16 - onw2/2;
+      const dirs = {};
+      others[n].forEach(p=>{ (dirs[p[0]]=dirs[p[0]]||{}); (dirs[p[0]][p[1]]=(dirs[p[0]][p[1]]||0)+1); });
+      const twoDir = dirs['in'] && dirs['out'];
+      [['out',1],['in',-1]].forEach(function(dd){
+        const dir = dd[0]; if (!dirs[dir]) return;
+        const yL = twoDir ? y - dd[1]*10 : y;
+        const x1 = dir==='out' ? ccx+lw/2 : ox-onw2/2;
+        const x2 = dir==='out' ? ox-onw2/2 : ccx+lw/2;
+        g += '<line x1="'+x1+'" y1="'+yL+'" x2="'+(x2-2)+'" y2="'+yL+'" stroke="var(--etsi)" stroke-width="1.4" marker-end="url(#arr-s'+si+')"/>';
+        const msgs = Object.keys(dirs[dir]);
+        const lbl = msgs.map(function(m){ const c=dirs[dir][m]; return esc(m)+(c>1?' x'+c:''); }).join(', ');
+        g += '<text x="'+((x1+x2)/2)+'" y="'+(yL-6)+'" text-anchor="middle" font-size="9" class="svgmono">'+lbl+'</text>';
+      });
+      g += '<rect x="'+(ox-onw2/2)+'" y="'+(y-17)+'" width="'+onw2+'" height="34" rx="3" fill="#fff" stroke="var(--hair)"/>'+
+           '<text x="'+ox+'" y="'+(y+3.4)+'" text-anchor="middle" font-size="'+ofs+'" class="svgmono svgnodetext">'+esc(n)+'</text>';
+    });
+    if (loops.length){
+      const y0 = cy - 16;
+      for (let i=0;i<loops.length;i++){
+        const x = ccx - lw/2 - 16 - i*22;
+        g += '<circle cx="'+x+'" cy="'+y0+'" r="10" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.4" marker-end="url(#arr-s'+si+')"/>';
+      }
+      const cnt = {}; loops.forEach(m=> cnt[m]=(cnt[m]||0)+1);
+      const lbl = Object.keys(cnt).map(m=> esc(m)+(cnt[m]>1?' x'+cnt[m]:'')).join(', ');
+      g += '<text x="'+(ccx - lw/2 - 16 - (loops.length-1)*22)+'" y="'+(y0+26)+'" text-anchor="middle" font-size="9" class="svgmono">'+lbl+'</text>';
+    }
+    const fill = 'var(--etsi-soft)';
+    g += '<rect x="'+(ccx-lw/2)+'" y="'+(cy-17)+'" width="'+lw+'" height="'+bh+'" rx="3" fill="'+fill+'" stroke="var(--etsi)" stroke-width="1.6"/>'+
+         '<text x="'+ccx+'" y="'+(cy+3.6)+'" text-anchor="middle" font-size="'+fs+'" class="svgmono svgnodetext" style="font-weight:600">'+esc(st)+'</text>';
+    const desc = SEEDDESC[st] || 'seed state of this framing';
+    return '<div class="sgcard"><div class="sghead"><span class="sgname"><span class="sgi">'+(si+1)+'</span>'+esc(st)+'</span>'+
+      '<span class="sgdesc">'+esc(desc)+'</span></div>'+
+      '<svg viewBox="0 0 '+W+' '+h+'" role="img" aria-label="'+esc(st)+' seed state graph">'+
+      '<defs><marker id="arr-s'+si+'" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">'+
+      '<path d="M0,0 L8,4 L0,8 z" fill="var(--etsi)"/></marker></defs>'+g+'</svg></div>';
+  }).join('');
+}
+
 function renderEnum(){
   const D = cur(), E = D.enum;
   $('#enum-run').textContent = RUN;
   $('#seed-n').textContent = D.fsm.states.length;
   $('#seed-e').textContent = D.fsm.transitions.length;
   renderFsmSvg();
+  renderSeedGraphs();
   $('#n-rstates').textContent = E.states.length;
   $('#n-redges').textContent = E.edges.length;
   $('#n-cu07').textContent = E.cu07.length;
