@@ -870,6 +870,23 @@ abbr{cursor:help}
     deterministic Python applied <em>afterwards</em>, and it is where the model's raw machine meets
     reality for the first time.</p>
 
+    <div class="sel" role="radiogroup" aria-label="LLM framing (Stage 3 local switch)">
+      <button class="card" data-run="A" aria-pressed="false">
+        <span class="win"></span>
+        <div class="tag">FRAMING A</div><h3>ARCANE's way</h3>
+      </button>
+      <button class="card" data-run="B" aria-pressed="false">
+        <span class="win"></span>
+        <div class="tag">FRAMING B</div><h3>Formal-methods engineer</h3>
+      </button>
+      <button class="card" data-run="C" aria-pressed="false">
+        <span class="win"></span>
+        <div class="tag">FRAMING C</div><h3>The noob <span style="font-weight:400;color:var(--ink2)">(our control)</span></h3>
+      </button>
+    </div>
+    <p class="note" style="margin-top:6px">Same three framings as Stage&nbsp;2 — switching here switches the
+    whole page, and every number below follows your choice.</p>
+
     <h3 style="font-size:16px;margin:26px 0 2px">Step 1 — the shrink: <span class="num" id="shrink-in">11</span> edges go in, <span class="num" id="shrink-fit">7</span> fit</h3>
     <p class="note">Before <code class="mono">merge_pta</code> can run, the seed has to fit ARCANE's
     container — and it does not, fully. The LLM wrote its transitions as a <b>list</b>: a list can say
@@ -882,6 +899,11 @@ abbr{cursor:help}
     right or wrong — it is only "what fits".</p>
     <div class="tw" id="shrink-table"></div>
     <p class="note" id="shrink-verdict"></p>
+    <p class="note"><b>我的解读：</b>缩小不是智能的，是格式的。LLM 的种子是一个<b>列表</b>，列表允许把同一
+    支箭写很多遍；ARCANE 的容器是一本<b>字典</b>，字典的键不能重复，所以每一对（源状态 → 目标状态）
+    只能放一条边。转换程序从上往下扫列表：第一次见到的（源 → 目标）放进容器，后面再出现的平行边
+    全部丢弃，只留一条记录。被丢的边不是被判了错，只是容器装不下：同一支箭、不同的 IE 组合，字典里
+    只给了一格。所以种子边数多，不代表模型内容多，只代表有话重复说了。</p>
 
     <h3 style="font-size:16px;margin:26px 0 2px">Step 2 — the growth: ARCANE's <code class="mono">merge_pta</code>, no model in the loop</h3>
     <p class="note">The LLM's job ended with the seed JSON in Stage&nbsp;2. Everything from here down is
