@@ -245,11 +245,6 @@ abbr{cursor:help}
     (<span class="mono">F1-Setup-Response</span>). The bug: if a peer sends the answer without
     the hello, the CU <b>crashes</b> (SIGSEGV, exit 139). One message takes the tower down.</p>
 
-    <p class="lede">That makes it a <b>real bug</b>, not a rough edge. The message is a perfect
-    copy of a real one — nothing wrong in its content. Only its <em>timing</em> is wrong: it
-    arrives first, with no hello ever sent (§8.2.3, §9.2.1.5 below). No working program should
-    crash over that.</p>
-
     <div class="eabox">
       <div class="earow">
         <div class="ealab"><i class="dot okd"></i>Normal — how it should go</div>
