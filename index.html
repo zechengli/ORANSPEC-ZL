@@ -673,9 +673,9 @@ abbr{cursor:help}
 
   <hr class="rule">
 
-  <!-- ================ 2 THE PIPELINE'S CONVERSION: LLM SEED + REFINEMENT ================ -->
+  <!-- ================ 2 THE LLM'S CONVERSION: SEED + REFINEMENT ================ -->
   <section class="stage" id="s2">
-    <div class="eyebrow"><span class="n">STAGE 2</span><span class="t">Spec → FSM — the pipeline's conversion</span></div>
+    <div class="eyebrow"><span class="n">STAGE 2</span><span class="t">Spec → FSM — the LLM's conversion</span></div>
     <h2>No expert: an LLM writes the seed, ARCANE's refiner grows it</h2>
     <p class="lede">The campaign never hired Stage&nbsp;1's expert. The same spec feed (§8.2.3 +
     §9.2.1.5 prose, plus the v16.3.1 ASN.1 with <code class="mono">PRESENCE mandatory/optional</code>
@@ -754,7 +754,7 @@ abbr{cursor:help}
     unreliability is part of the honest story.</p>
 
     <h3 style="font-size:16px;margin:26px 0 2px">From seed to machine — ARCANE's <code class="mono">merge_pta</code>, no model in the loop</h3>
-    <p class="note">The second half of the pipeline's conversion, and everything from here down is its
+    <p class="note">The second half of the LLM's conversion, and everything from here down is its
     real artifacts. The LLM's whole job was the seed JSON — the same spec feed, four prompts, all four
     seeds compared above. From there on there is <b>no model in the loop</b>:
     ordinary deterministic Python — <code class="mono">ARCANEModelRefiner.merge_pta</code>,
