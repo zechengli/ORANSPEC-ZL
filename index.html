@@ -899,11 +899,15 @@ abbr{cursor:help}
     right or wrong — it is only "what fits".</p>
     <div class="tw" id="shrink-table"></div>
     <p class="note" id="shrink-verdict"></p>
-    <p class="note"><b>我的解读：</b>缩小不是智能的，是格式的。LLM 的种子是一个<b>列表</b>，列表允许把同一
-    支箭写很多遍；ARCANE 的容器是一本<b>字典</b>，字典的键不能重复，所以每一对（源状态 → 目标状态）
-    只能放一条边。转换程序从上往下扫列表：第一次见到的（源 → 目标）放进容器，后面再出现的平行边
-    全部丢弃，只留一条记录。被丢的边不是被判了错，只是容器装不下：同一支箭、不同的 IE 组合，字典里
-    只给了一格。所以种子边数多，不代表模型内容多，只代表有话重复说了。</p>
+    <p class="note"><b>我的解读：</b>缩小不是通过什么算法，只是格式上的，等于用 hash table。字典的
+    键不能重复，每一对（源状态 → 目标状态）只能放一条边；转换程序从上往下扫 LLM 的列表，第一次见到的
+    放进容器，后面重复的直接丢掉，只留一条记录。</p>
+    <p class="note"><b>那为什么 LLM 一开始会生成这么多重复的？</b>看 A 的 4 条响应边就明白了：它们不是
+    同一句话抄了 4 遍，是 4 个不同的测试情形。一条是正常响应，一条缺了必填的 IE，一条 IE 值超了范围，
+    一条条件字段不该出现。A 的提示词就是要它给 IE 标 valid / invalid / missing，建一致性测试的模型，
+    所以它把同一个消息在不同 IE 情形下的表现各写了一条。LLM 输出的不是一张图，是一张情形清单；
+    hash table 的键只看从哪到哪，不看是什么情形，装不下的就都丢了。C 一条重复都没有，也是同一个道理
+    反过来：它没有 IE 可标，就没有情形可列。</p>
 
     <h3 style="font-size:16px;margin:26px 0 2px">Step 2 — the growth: ARCANE's <code class="mono">merge_pta</code>, no model in the loop</h3>
     <p class="note">The LLM's job ended with the seed JSON in Stage&nbsp;2. Everything from here down is
