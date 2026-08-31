@@ -780,20 +780,6 @@ abbr{cursor:help}
       every transition that touches it — arrows in, arrows out, self-loops as circles on the left
       (one circle per raw copy the LLM wrote; see the legend in the drawing above).</div>
     </div>
-
-    <p class="note"><b>Why this stage matters:</b> ARCANE's published seed model carries <em>no</em>
-    direction information — the gap that makes an unsolicited Response look walkable. Framings A and B
-    preserve it (C half-does: the noob tagged who-sends-whom, but in fields the pipeline never reads).
-    <br><br><b>Recorded limitation:</b> GLM is a reasoning model; pass&nbsp;1 burned its 32&thinsp;768-token
-    output on thinking and truncated the JSON. Pass&nbsp;2 added a compactness clause. That
-    unreliability is part of the honest story.</p>
-
-    <p class="note">用中文说一遍:<b>为什么这一步重要</b> —— ARCANE 官方发布的种子模型不带任何方向信息,
-    这正是漏洞的缝隙:一条没人请求的 F1-Setup-Response 之所以在机器上"走得通",就是因为机器不知道
-    这条消息本该由谁发起。Framing A 和 B 的种子把方向保住了(C 半保:它标了谁发给谁,
-    但放在 pipeline 永远不会读的字段里)。<br><br><b>记录在案的局限</b> —— GLM 是推理模型,
-    第一遍把 32&thinsp;768 个输出 token 全烧在了 thinking 上,JSON 被截断;第二遍加了一句紧凑性条款才补全。
-    这种不可靠性本身,就是这个诚实故事的一部分。</p>
   </section>
 
   <hr class="rule">
