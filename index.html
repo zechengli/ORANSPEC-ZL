@@ -304,6 +304,37 @@ abbr{cursor:help}
 .pnavlist button.on{color:var(--etsi);font-weight:600;background:var(--etsi-soft)}
 .pnavlist .pn{flex:none;width:104px;color:var(--hair);font-weight:600}
 .pnavlist button.on .pn{color:var(--etsi)}
+.pnavhead{display:none}
+
+/* ---------- expert conversion: 3-column rows with per-step FSM sketches ---------- */
+.eabox.conv .earow{grid-template-columns:200px minmax(0,1fr) 296px}
+.eabox.conv .ealab{font-size:10.5px}
+.eafsm{border-left:1px solid var(--hair);background:var(--paper2);padding:12px 14px}
+.eafsm svg{display:block;width:100%;max-width:268px;height:auto;margin:0 auto}
+.eafsm svg text{font-family:var(--mono)}
+.eafsm svg .st{fill:var(--ink)}
+.eafsm svg .lb{fill:var(--ink2)}
+.eafsm svg .gd{fill:var(--ink2);font-size:8px}
+.eafsm svg .rj{fill:var(--fault)}
+.eafsm .fcap{font-family:var(--mono);font-size:10px;line-height:1.55;color:var(--ink2);margin-top:8px}
+@media(max-width:1120px){
+  .eabox.conv .earow{grid-template-columns:1fr}
+  .eabox.conv .ealab{border-right:none;border-bottom:1px dashed var(--hair)}
+  .eafsm{border-left:none;border-top:1px dashed var(--hair)}
+}
+
+/* rail mode: the navigator sits open in the empty right margin on wide screens */
+@media(min-width:1480px){
+  .pnav{right:14px;bottom:auto;top:50%;transform:translateY(-50%)}
+  .pnavtoggle{display:none}
+  .pnavhead{display:block;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;
+    color:var(--ink2);padding:9px 12px 7px;border-bottom:1px solid var(--hair);background:#fff}
+  .pnavlist{display:block;position:static;bottom:auto;min-width:0;max-width:none;width:200px;
+    max-height:76vh;box-shadow:0 4px 18px rgba(22,33,46,.10)}
+  .pnavlist button{display:block;padding:8px 12px;line-height:1.45;white-space:normal}
+  .pnavlist .pn{display:block;width:auto;margin-bottom:2px}
+  .pnavlist button.on{box-shadow:inset 3px 0 0 var(--etsi)}
+}
 
 </style>
 </head>
@@ -314,6 +345,7 @@ abbr{cursor:help}
   <button class="pnavtoggle" id="pnavtoggle" aria-expanded="false" aria-haspopup="true">
     <span id="pnavcur"></span><span class="car">▾</span>
   </button>
+  <div class="pnavhead">on this page</div>
   <div class="pnavlist" id="pnavlist" role="menu"></div>
 </nav>
 
@@ -413,8 +445,12 @@ abbr{cursor:help}
     <h2>Inside an expert's head: turning the spec into a machine</h2>
     <p class="lede">How does a protocol expert actually perform the conversion?</p>
 
-    <h3 style="font-size:16px;margin:26px 0 2px">The conversion, step by step — every reading, every decision</h3>
-    <div class="eabox">
+    <h3 style="font-size:16px;margin:26px 0 2px">The conversion, step by step — every reading, every decision, and the machine as it stands after each step</h3>
+    <div class="eabox conv">
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+        <marker id="mne" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="var(--etsi)"/></marker>
+        <marker id="mnf" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="var(--fault)"/></marker>
+      </defs></svg>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>1 · open the ASN.1 first</div>
         <div class="eatxt">Prose can waffle; the ASN.1 cannot — it is the type system the CU was compiled
@@ -425,6 +461,11 @@ abbr{cursor:help}
         exactly <b>three</b> message types; the Request is born DU→CU; the Response and Failure are born
         CU→DU. Direction is a property of the type system, not an opinion — "the DU sends a Response"
         is not an edge any careful model can draw.</div>
+        <div class="eafsm"><svg viewBox="0 0 280 140" role="img" aria-label="after step 1: three message types, no states yet">
+          <g><rect x="65" y="30" width="150" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="140" y="44" text-anchor="middle" font-size="8.5" class="st">F1SetupRequest · DU→CU</text></g>
+          <g><rect x="65" y="60" width="150" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="140" y="74" text-anchor="middle" font-size="8.5" class="st">F1SetupResponse · CU→DU</text></g>
+          <g><rect x="65" y="90" width="150" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="140" y="104" text-anchor="middle" font-size="8.5" class="st">F1SetupFailure · CU→DU</text></g>
+        </svg><div class="fcap">after step 1 · no states yet — three message types, direction already law</div></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>2 · find the trigger — it names the initial state</div>
@@ -435,6 +476,12 @@ abbr{cursor:help}
         the initiating one from the ASN.1: the DU's Request arrives → <b>SETUP_REQUESTED</b>. That
         clause also settles scope: <em>first</em> procedure means everything else on F1-C is gated
         behind this one finishing — the expert will enforce that in step&nbsp;6.</div>
+        <div class="eafsm"><svg viewBox="0 0 280 140" role="img" aria-label="after step 2: IDLE and SETUP_REQUESTED, one edge">
+          <line x1="54" y1="51" x2="87" y2="51" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="71" y="45" text-anchor="middle" font-size="8.5" class="lb">Request</text>
+          <g><rect x="6" y="40" width="48" height="22" rx="3" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.2"/><text x="30" y="54" text-anchor="middle" font-size="9" class="st">IDLE</text></g>
+          <g><rect x="90" y="40" width="96" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="138" y="54" text-anchor="middle" font-size="9" class="st">SETUP_REQUESTED</text></g>
+        </svg><div class="fcap">after step 2 · 2 states · 1 edge — the trigger names them</div></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>3 · two outcome slots → two destinies</div>
@@ -446,6 +493,25 @@ abbr{cursor:help}
         it. Time&nbsp;To&nbsp;Wait present → don't retry immediately; hold a <b>TIME_WAIT</b> state
         whose exit is a <em>timer</em>, not a message. Absent → retry at once. Both forks land in the
         same place: a fresh F1 Setup, which is IDLE again.</div>
+        <div class="eafsm"><svg viewBox="0 0 280 140" role="img" aria-label="after step 3: five states, six edges">
+          <line x1="54" y1="51" x2="87" y2="51" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="71" y="45" text-anchor="middle" font-size="8.5" class="lb">Request</text>
+          <line x1="186" y1="51" x2="207" y2="51" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="197" y="45" text-anchor="middle" font-size="8.5" class="lb">Response</text>
+          <line x1="150" y1="62" x2="192" y2="107" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="148" y="90" text-anchor="middle" font-size="8.5" class="lb">Failure</text>
+          <path d="M 172,110 Q 128,104 106,64" fill="none" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="146" y="101" text-anchor="middle" font-size="8.5" class="lb">retry</text>
+          <line x1="168" y1="121" x2="96" y2="121" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="132" y="116" text-anchor="middle" font-size="8.5" class="lb">TTW ∈ IEs</text>
+          <path d="M 57,110 Q 70,88 98,62" fill="none" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="30" y="96" font-size="8.5" class="lb">wait</text>
+          <g><rect x="6" y="40" width="48" height="22" rx="3" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.2"/><text x="30" y="54" text-anchor="middle" font-size="9" class="st">IDLE</text></g>
+          <g><rect x="90" y="40" width="96" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="138" y="54" text-anchor="middle" font-size="9" class="st">SETUP_REQUESTED</text></g>
+          <g><rect x="210" y="40" width="64" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="242" y="54" text-anchor="middle" font-size="9" class="st">COMPLETE</text></g>
+          <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
+          <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
+        </svg><div class="fcap">after step 3 · 5 states · 6 edges — outcomes decided, backoff rides on the Time&nbsp;To&nbsp;Wait IE</div></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>4 · ask of every state: what can arrive that I haven't drawn?</div>
@@ -459,6 +525,29 @@ abbr{cursor:help}
         gains explicit <b>reject edges</b> — and on IDLE sits the killer message from Stage&nbsp;0:
         an unsolicited F1-Setup-Response → discard&nbsp;+&nbsp;Error&nbsp;Indication. It <em>is</em>
         in the model, marked forbidden, with <span class="mono">expected_result: reject</span>.</div>
+        <div class="eafsm"><svg viewBox="0 0 280 140" role="img" aria-label="after step 4: reject edges added, machine closed">
+          <circle cx="22" cy="24" r="8" fill="var(--etsi-soft)" stroke="var(--fault)" stroke-width="1.4"/>
+          <line x1="25" y1="31" x2="29" y2="38" stroke="var(--fault)" stroke-width="1.3" marker-end="url(#mnf)"/>
+          <text x="38" y="22" font-size="8" class="rj">unsolicited Response</text>
+          <text x="38" y="33" font-size="8" class="rj">→ discard + Error Ind.</text>
+          <line x1="54" y1="51" x2="87" y2="51" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="71" y="45" text-anchor="middle" font-size="8.5" class="lb">Request</text>
+          <line x1="186" y1="51" x2="207" y2="51" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="197" y="45" text-anchor="middle" font-size="8.5" class="lb">Response</text>
+          <line x1="150" y1="62" x2="192" y2="107" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="148" y="90" text-anchor="middle" font-size="8.5" class="lb">Failure</text>
+          <path d="M 172,110 Q 128,104 106,64" fill="none" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="146" y="101" text-anchor="middle" font-size="8.5" class="lb">retry</text>
+          <line x1="168" y1="121" x2="96" y2="121" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="132" y="116" text-anchor="middle" font-size="8.5" class="lb">TTW ∈ IEs</text>
+          <path d="M 57,110 Q 70,88 98,62" fill="none" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="30" y="96" font-size="8.5" class="lb">wait</text>
+          <g><rect x="6" y="40" width="48" height="22" rx="3" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.2"/><text x="30" y="54" text-anchor="middle" font-size="9" class="st">IDLE</text></g>
+          <g><rect x="90" y="40" width="96" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="138" y="54" text-anchor="middle" font-size="9" class="st">SETUP_REQUESTED</text></g>
+          <g><rect x="210" y="40" width="64" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="242" y="54" text-anchor="middle" font-size="9" class="st">COMPLETE</text></g>
+          <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
+          <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
+        </svg><div class="fcap">after step 4 · machine closed — every unmatched arrival gets a red reject; the killer message now has a home</div></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>5 · dress every edge with guards</div>
@@ -468,6 +557,31 @@ abbr{cursor:help}
         is not an edge — it is a step-4 reject), and IE presence per the ASN.1
         <span class="mono">PRESENCE</span> clauses. And one thing is deliberately <em>not</em> an edge:
         Time&nbsp;To&nbsp;Wait is a timer inside TIME_WAIT, never a "message" anyone sends.</div>
+        <div class="eafsm"><svg viewBox="0 0 280 140" role="img" aria-label="after step 5: guards annotated on the edges">
+          <circle cx="22" cy="24" r="8" fill="var(--etsi-soft)" stroke="var(--fault)" stroke-width="1.4"/>
+          <line x1="25" y1="31" x2="29" y2="38" stroke="var(--fault)" stroke-width="1.3" marker-end="url(#mnf)"/>
+          <text x="38" y="22" font-size="8" class="rj">unsolicited Response</text>
+          <text x="38" y="33" font-size="8" class="rj">→ discard + Error Ind.</text>
+          <line x1="54" y1="51" x2="87" y2="51" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="71" y="45" text-anchor="middle" font-size="8.5" class="lb">Request</text>
+          <text x="71" y="67" text-anchor="middle" class="gd">DU→CU · TID</text>
+          <line x1="186" y1="51" x2="207" y2="51" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="197" y="45" text-anchor="middle" font-size="8.5" class="lb">Response</text>
+          <text x="206" y="67" text-anchor="middle" class="gd">CU→DU · TID match</text>
+          <line x1="150" y1="62" x2="192" y2="107" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="148" y="90" text-anchor="middle" font-size="8.5" class="lb">Failure</text>
+          <path d="M 172,110 Q 128,104 106,64" fill="none" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="146" y="101" text-anchor="middle" font-size="8.5" class="lb">retry</text>
+          <line x1="168" y1="121" x2="96" y2="121" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="132" y="116" text-anchor="middle" font-size="8.5" class="lb">TTW ∈ IEs</text>
+          <path d="M 57,110 Q 70,88 98,62" fill="none" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="30" y="96" font-size="8.5" class="lb">wait</text>
+          <g><rect x="6" y="40" width="48" height="22" rx="3" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.2"/><text x="30" y="54" text-anchor="middle" font-size="9" class="st">IDLE</text></g>
+          <g><rect x="90" y="40" width="96" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="138" y="54" text-anchor="middle" font-size="9" class="st">SETUP_REQUESTED</text></g>
+          <g><rect x="210" y="40" width="64" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="242" y="54" text-anchor="middle" font-size="9" class="st">COMPLETE</text></g>
+          <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
+          <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
+        </svg><div class="fcap">after step 5 · guards on every edge — direction, transaction match, IE presence; Time&nbsp;To&nbsp;Wait stays a timer, never a message</div></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>6 · keep the machine honest: one procedure, IEs are data</div>
@@ -476,10 +590,35 @@ abbr{cursor:help}
         them into one global soup of states. And the information elements stay <b>data</b>: they ride
         on the edges as annotations (that is what the mutation pass in Stage&nbsp;3 will chew on);
         an IE never gets a state of its own.</div>
+        <div class="eafsm"><svg viewBox="0 0 280 140" role="img" aria-label="after step 6: the finished five-state, eight-edge machine">
+          <circle cx="22" cy="24" r="8" fill="var(--etsi-soft)" stroke="var(--fault)" stroke-width="1.4"/>
+          <line x1="25" y1="31" x2="29" y2="38" stroke="var(--fault)" stroke-width="1.3" marker-end="url(#mnf)"/>
+          <text x="38" y="22" font-size="8" class="rj">unsolicited Response</text>
+          <text x="38" y="33" font-size="8" class="rj">→ discard + Error Ind.</text>
+          <path d="M 236,40 Q 208,12 174,40" fill="none" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="206" y="14" text-anchor="middle" font-size="8.5" class="lb">re-run (§8.2.3.1)</text>
+          <line x1="54" y1="51" x2="87" y2="51" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="71" y="45" text-anchor="middle" font-size="8.5" class="lb">Request</text>
+          <line x1="186" y1="51" x2="207" y2="51" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="197" y="45" text-anchor="middle" font-size="8.5" class="lb">Response</text>
+          <line x1="150" y1="62" x2="192" y2="107" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="148" y="90" text-anchor="middle" font-size="8.5" class="lb">Failure</text>
+          <path d="M 172,110 Q 128,104 106,64" fill="none" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="146" y="101" text-anchor="middle" font-size="8.5" class="lb">retry</text>
+          <line x1="168" y1="121" x2="96" y2="121" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="132" y="116" text-anchor="middle" font-size="8.5" class="lb">TTW ∈ IEs</text>
+          <path d="M 57,110 Q 70,88 98,62" fill="none" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#mne)"/>
+          <text x="30" y="96" font-size="8.5" class="lb">wait</text>
+          <g><rect x="6" y="40" width="48" height="22" rx="3" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.2"/><text x="30" y="54" text-anchor="middle" font-size="9" class="st">IDLE</text></g>
+          <g><rect x="90" y="40" width="96" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="138" y="54" text-anchor="middle" font-size="9" class="st">SETUP_REQUESTED</text></g>
+          <g><rect x="210" y="40" width="64" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="242" y="54" text-anchor="middle" font-size="9" class="st">COMPLETE</text></g>
+          <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
+          <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
+        </svg><div class="fcap">after step 6 · <b>5 states · 8 edges</b> — the finished machine, full size just below</div></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot okd"></i>what the expert is left holding</div>
-        <div class="eatxt"><b>Five states, eight edges</b>, every name a protocol milestone, every edge
+        <div class="eatxt" style="grid-column:2/-1"><b>Five states, eight edges</b>, every name a protocol milestone, every edge
         traceable to a clause or a type — another expert can review the whole thing in an afternoon.
         The reading is honest about its own costs too: it took days of scarce expert time, and it is
         one human's interpretation — mistakes would be systematic, not random. And note what the
