@@ -285,9 +285,37 @@ abbr{cursor:help}
 .dot{display:inline-block;width:7px;height:7px;margin-top:4px;flex:none}
 .dot.okd{background:var(--ok)} .dot.fld{background:var(--fault)} .dot.bl{background:var(--etsi)}
 
+/* ---------- page navigator ---------- */
+#navprog{position:fixed;top:0;left:0;height:3px;width:0;background:var(--etsi);z-index:55}
+.pnav{position:fixed;right:16px;bottom:16px;z-index:55;font-family:var(--mono)}
+.pnavtoggle{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--etsi);
+  color:var(--etsi);font-size:11px;letter-spacing:.4px;padding:7px 12px;cursor:pointer;
+  max-width:min(300px,72vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pnavtoggle:hover{background:var(--etsi-soft)}
+.pnavtoggle .car{flex:none;transition:transform .18s;font-size:9px}
+.pnav.open .pnavtoggle .car{transform:rotate(180deg)}
+.pnavlist{display:none;position:absolute;right:0;bottom:calc(100% + 8px);background:#fff;
+  border:1px solid var(--hair);box-shadow:0 4px 18px rgba(22,33,46,.14);min-width:265px;
+  max-width:78vw;padding:5px;max-height:70vh;overflow:auto}
+.pnav.open .pnavlist{display:block}
+.pnavlist button{display:flex;gap:10px;width:100%;border:0;background:none;cursor:pointer;text-align:left;
+  font-family:var(--mono);font-size:11px;letter-spacing:.3px;color:var(--ink2);padding:6px 10px;align-items:baseline}
+.pnavlist button:hover{background:var(--paper2)}
+.pnavlist button.on{color:var(--etsi);font-weight:600;background:var(--etsi-soft)}
+.pnavlist .pn{flex:none;width:104px;color:var(--hair);font-weight:600}
+.pnavlist button.on .pn{color:var(--etsi)}
+
 </style>
 </head>
 <body>
+
+<div id="navprog"></div>
+<nav class="pnav" id="pnav" aria-label="where you are on the page">
+  <button class="pnavtoggle" id="pnavtoggle" aria-expanded="false" aria-haspopup="true">
+    <span id="pnavcur"></span><span class="car">▾</span>
+  </button>
+  <div class="pnavlist" id="pnavlist" role="menu"></div>
+</nav>
 
 <header>
   <div class="wrap">
@@ -1537,6 +1565,63 @@ $('#bytes').innerHTML = groups.map((g,i) =>
 ).join(' ');
 renderAll();
 replay();   // auto-run once on load
+</script>
+<script>
+(function(){
+  /* page navigator: progress bar + current-stage pill + stage menu.
+     Labels are derived from each section's .eyebrow so they stay in sync. */
+  var secs=[].slice.call(document.querySelectorAll('section.stage'));
+  var nav=document.getElementById('pnav'), toggle=document.getElementById('pnavtoggle'),
+      list=document.getElementById('pnavlist'), cur=document.getElementById('pnavcur'),
+      prog=document.getElementById('navprog');
+  var items=secs.map(function(s){
+    var n=s.querySelector('.eyebrow .n'), t=s.querySelector('.eyebrow .t');
+    var num=n?n.textContent.trim():'',
+        lab=t?t.textContent.trim().replace(/^Spec → FSM — /,''):'';
+    var b=document.createElement('button');
+    b.setAttribute('role','menuitem');
+    var nn=document.createElement('span'); nn.className='pn'; nn.textContent=num;
+    var nl=document.createElement('span'); nl.textContent=lab;
+    b.appendChild(nn); b.appendChild(nl);
+    b.addEventListener('click',function(){
+      s.scrollIntoView({behavior:'smooth',block:'start'});
+      close();
+    });
+    list.appendChild(b);
+    return {s:s,b:b,num:num,lab:lab};
+  });
+  function close(){
+    nav.classList.remove('open');
+    toggle.setAttribute('aria-expanded','false');
+  }
+  toggle.addEventListener('click',function(){
+    var open=nav.classList.toggle('open');
+    toggle.setAttribute('aria-expanded',open?'true':'false');
+  });
+  document.addEventListener('click',function(e){
+    if(nav.classList.contains('open') && !nav.contains(e.target)) close();
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape' && nav.classList.contains('open')) close();
+  });
+  var active=-1;
+  function upd(){
+    var st=window.scrollY||document.documentElement.scrollTop;
+    var h=document.documentElement.scrollHeight-window.innerHeight;
+    prog.style.width=(h>0?(st/h*100):0)+'%';
+    var mark=st+window.innerHeight*0.3, i;
+    for(i=items.length-1;i>=0;i--){ if(items[i].s.offsetTop<=mark) break; }
+    if(i<0)i=0;
+    if(i!==active){
+      active=i;
+      items.forEach(function(m,j){ m.b.classList.toggle('on',j===i); });
+      cur.textContent=items[i].num+' · '+items[i].lab;
+    }
+  }
+  window.addEventListener('scroll',upd,{passive:true});
+  window.addEventListener('resize',upd);
+  upd();
+})();
 </script>
 </body>
 </html>
