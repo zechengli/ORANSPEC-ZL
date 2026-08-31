@@ -527,7 +527,7 @@ abbr{cursor:help}
           <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
           <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
         </svg><div class="fcap">after step 3 · 5 states · 6 edges — outcomes decided, backoff rides on the Time&nbsp;To&nbsp;Wait IE</div></div>
-        <div class="eamy"><p class="myhint">（第 3 步的解读，待写）</p></div>
+        <div class="eamy"><p>第三步：现在把成功和失败的概念加进来，如果成功了，就表示complete，你可以看到上面的路线是request进来，response出去如果成功了就是complete，如果失败了就是SetupFailure,这时候可以再次尝试，或者把状态打到time_wait去，等一会再试试。</p></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>4 · ask of every state: what can arrive that I haven't drawn?</div>
