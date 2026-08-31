@@ -55,6 +55,21 @@ hr.rule{border:none;border-top:1px solid var(--hair);margin:44px 0 0}
   padding:13px 18px;margin-top:14px;line-height:1.65}
 .note b{color:var(--ink)}
 
+/* ---------- expert strengths / weaknesses box ---------- */
+.swbox{padding:18px 20px;margin-top:20px}
+.swcols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:12px}
+.swbox .gh{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin:0 0 8px}
+.swcol.good .gh{color:var(--ok)}
+.swcol.bad .gh{color:var(--fault)}
+.swcol ul{margin:0;padding-left:18px}
+.swcol li{font-size:13px;line-height:1.75;margin-bottom:6px}
+.swcol li:last-child{margin-bottom:0}
+.swcol.good li{color:var(--ok)}
+.swcol.bad li{color:var(--fault)}
+.swflip{margin:14px 0 0;font-size:12.5px;color:var(--ink2)}
+.swflip b{color:var(--ink)}
+@media(max-width:900px){.swcols{grid-template-columns:1fr}}
+
 /* ---------- tabs / spec viewer ---------- */
 .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 0}
 .tabs button{font-family:var(--mono);font-size:12.5px;padding:7px 14px;border:1px solid var(--hair);
@@ -688,6 +703,33 @@ abbr{cursor:help}
     reading of the spec. The campaign took neither path to its machine: it grew one with no expert
     in the room, from an LLM seed and real captured traffic — and because that machine never wrote
     a verdict for the unsolicited Response, walking it is what found CU07. That conversion is next.</p>
+
+    <div class="note swbox">
+      <b>专家的优缺点</b> — 我自己的批注：绿是这一步做得好的地方，红是同一枚硬币的另一面。
+      <div class="swcols">
+        <div class="swcol good">
+          <div class="gh">优点</div>
+          <ul>
+            <li>经验的完整与正确：足够资深、或多名专家交叉，画出的 FSM 大体完整、正确。</li>
+            <li>语义压缩：知道哪些句子是法律（方向、criticality、presence），哪些只是说明。</li>
+            <li>面对沉默的推断：spec 不写的地方，能去 criticality 机制找规则把机器闭合。</li>
+            <li>边界感：一个 procedure 一台机器，IE 是数据。</li>
+          </ul>
+        </div>
+        <div class="swcol bad">
+          <div class="gh">缺点</div>
+          <ul>
+            <li>脑容量有限：记忆错误（记错条款与 IE 必填，版本对不上）＋认知错误（没接触过的特殊情况，问了也想不到）。</li>
+            <li>tradeoff 无原则记录：collapse 哪些状态、画不画 TIME_WAIT，做了选择不写为什么，无法审计、无法重放。</li>
+            <li>慢且贵：专家画一台机器要小时到天，LLM 出 4 个种子只要几分钟。</li>
+            <li>不可复现：专家的机器靠权威被相信，机器的机器靠执行被验证。</li>
+            <li>没有自我验证的 oracle：验证 FSM 完整性需要的正是这场 campaign 本身。</li>
+            <li>优势即劣势：模式匹配带来锚定，fuzzers 猎的恰恰是预期之外的区域。</li>
+          </ul>
+        </div>
+      </div>
+      <p class="swflip">每一条红都是某条绿的影子——<b>资深即锚定，判断即 tradeoff，认真即慢</b>。缺点其实也是优点，只是代价。</p>
+    </div>
   </section>
 
   <hr class="rule">
