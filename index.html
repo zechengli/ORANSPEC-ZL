@@ -264,9 +264,9 @@ abbr{cursor:help}
 .tracebox button{font-family:var(--mono);font-size:12px;background:var(--etsi);color:#fff;
   border:none;padding:7px 16px;cursor:pointer}
 .tracebox button:hover{filter:brightness(1.12)}
-#enumGo{font-family:var(--mono);font-size:12px;background:var(--etsi);color:#fff;border:none;
-  border-radius:6px;padding:8px 14px;cursor:pointer;margin:6px 0 2px}
-#enumGo:hover{filter:brightness(1.12)}
+.sgtog{font-family:var(--mono);font-size:12px;background:var(--etsi);color:#fff;border:none;
+  border-radius:6px;padding:6px 12px;cursor:pointer;margin:2px 0 8px}
+.sgtog:hover{filter:brightness(1.12)}
 .tracebox button:disabled{background:var(--hair);color:var(--ink2);cursor:wait}
 .tlane{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:64px;margin:16px 0 10px}
 .tnode{border:1px solid var(--etsi);background:var(--etsi-soft);color:var(--etsi);
@@ -762,8 +762,6 @@ abbr{cursor:help}
     <div id="illegal-wrap"></div>
 
     <h3 style="font-size:16px;margin:26px 0 2px">Enumerate the seed — framing <span id="enum-run">A</span>, nothing hidden</h3>
-    <button id="enumGo" type="button">▶ draw the seed machine + per-state graphs</button>
-    <div id="enum-body" hidden>
 
     <div class="fsvgwrap">
       <svg id="fsm-svg" viewBox="0 0 940 380" role="img" aria-label="seed FSM drawing"></svg>
@@ -782,7 +780,6 @@ abbr{cursor:help}
       every transition that touches it — arrows in, arrows out, self-loops as circles on the left
       (one circle per raw copy the LLM wrote; see the legend in the drawing above).</div>
     </div>
-    </div>
 
     <p class="note"><b>Why this stage matters:</b> ARCANE's published seed model carries <em>no</em>
     direction information — the gap that makes an unsolicited Response look walkable. Framings A and B
@@ -790,6 +787,13 @@ abbr{cursor:help}
     <br><br><b>Recorded limitation:</b> GLM is a reasoning model; pass&nbsp;1 burned its 32&thinsp;768-token
     output on thinking and truncated the JSON. Pass&nbsp;2 added a compactness clause. That
     unreliability is part of the honest story.</p>
+
+    <p class="note">用中文说一遍:<b>为什么这一步重要</b> —— ARCANE 官方发布的种子模型不带任何方向信息,
+    这正是漏洞的缝隙:一条没人请求的 F1-Setup-Response 之所以在机器上"走得通",就是因为机器不知道
+    这条消息本该由谁发起。Framing A 和 B 的种子把方向保住了(C 半保:它标了谁发给谁,
+    但放在 pipeline 永远不会读的字段里)。<br><br><b>记录在案的局限</b> —— GLM 是推理模型,
+    第一遍把 32&thinsp;768 个输出 token 全烧在了 thinking 上,JSON 被截断;第二遍加了一句紧凑性条款才补全。
+    这种不可靠性本身,就是这个诚实故事的一部分。</p>
   </section>
 
   <hr class="rule">
@@ -1272,9 +1276,7 @@ function renderFsmSvg(){
     : 'No two edges share a (source, target) pair, so there is nothing for the container to collapse: all '+T.length+' pass through to refinement (Stage 3 below).';
   $('#fsm-cap').innerHTML = cap;
 }
-function renderSeedGraphs(){
-  const D = cur(), S = D.fsm.states, T = D.fsm.transitions;
-  const SEEDDESC = {
+const SEEDDESC = {
     IDLE: 'before the hello — a peer is on the port, nothing negotiated yet',
     F1_SETUP_PENDING: 'the hello arrived — the CU is deciding what to answer',
     F1_SETUP_COMPLETE: 'setup succeeded — the CU accepted the DU, normal operation',
@@ -1285,8 +1287,11 @@ function renderSeedGraphs(){
     SETUP_FAILED: 'setup rejected — the CU answered with a failure message',
     BACKOFF: 'the time-to-wait timer runs before another setup attempt'
   };
+function seedGraphSvg(si){
+  const D = cur(), S = D.fsm.states, T = D.fsm.transitions;
+  const st = S[si];
   const W = 640, rowH = 62;
-  $('#seedgraphs').innerHTML = S.map(function(st, si){
+  return (function(){
     const others = {}, loops = [];
     T.forEach(function(t){
       if (t.from===st && t.to===st){ loops.push(t.MessageType); return; }
@@ -1337,14 +1342,30 @@ function renderSeedGraphs(){
     const fill = 'var(--etsi-soft)';
     g += '<rect x="'+(ccx-lw/2)+'" y="'+(cy-17)+'" width="'+lw+'" height="'+bh+'" rx="3" fill="'+fill+'" stroke="var(--etsi)" stroke-width="1.6"/>'+
          '<text x="'+ccx+'" y="'+(cy+3.6)+'" text-anchor="middle" font-size="'+fs+'" class="svgmono svgnodetext" style="font-weight:600">'+esc(st)+'</text>';
+    return '<svg viewBox="0 0 '+W+' '+h+'" role="img" aria-label="'+esc(st)+' seed state graph">'+
+      '<defs><marker id="arr-s'+si+'" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">'+
+      '<path d="M0,0 L8,4 L0,8 z" fill="var(--etsi)"/></marker></defs>'+g+'</svg>';
+  })();
+}
+
+function renderSeedGraphs(){
+  const S = cur().fsm.states;
+  $('#seedgraphs').innerHTML = S.map(function(st, si){
     const desc = SEEDDESC[st] || 'seed state of this framing';
     return '<div class="sgcard"><div class="sghead"><span class="sgname"><span class="sgi">'+(si+1)+'</span>'+esc(st)+'</span>'+
       '<span class="sgdesc">'+esc(desc)+'</span></div>'+
-      '<svg viewBox="0 0 '+W+' '+h+'" role="img" aria-label="'+esc(st)+' seed state graph">'+
-      '<defs><marker id="arr-s'+si+'" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">'+
-      '<path d="M0,0 L8,4 L0,8 z" fill="var(--etsi)"/></marker></defs>'+g+'</svg></div>';
+      '<button type="button" class="sgtog" data-i="'+si+'">▶ show this state graph</button>'+
+      '<div class="sgbody" data-i="'+si+'" hidden></div></div>';
   }).join('');
 }
+
+$('#seedgraphs').addEventListener('click', function(ev){
+  const b = ev.target.closest('.sgtog'); if (!b) return;
+  const body = this.querySelector('.sgbody[data-i="'+b.dataset.i+'"]');
+  if (!body.innerHTML) body.innerHTML = seedGraphSvg(+b.dataset.i);
+  body.hidden = !body.hidden;
+  b.textContent = body.hidden ? '▶ show this state graph' : '▼ hide this state graph';
+});
 
 function buildStateGraph(st, big){
   const D = cur(), E = D.enum;
@@ -1542,11 +1563,11 @@ function renderRefine(){
   $('#re-box').innerHTML = h;
 }
 
-let enumOpen = false;
 function renderEnum(){
   const D = cur(), E = D.enum;
   $('#enum-run').textContent = RUN;
-  if (enumOpen){ renderFsmSvg(); renderSeedGraphs(); }
+  renderFsmSvg();
+  renderSeedGraphs();
   $('#n-rstates').textContent = E.states.length;
   $('#n-redges').textContent = E.edges.length;
   $('#n-cu07').textContent = E.cu07.length;
@@ -1794,12 +1815,6 @@ document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',
 // ---- run selector ----
 document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{ RUN = c.dataset.run; renderAll(); }));
 $('#traceGo').addEventListener('click', playTrace);
-$('#enumGo').addEventListener('click', function(){
-  enumOpen = true;
-  $('#enumGo').hidden = true;
-  $('#enum-body').hidden = false;
-  renderFsmSvg(); renderSeedGraphs();
-});
 
 const WIRE = '40010040000004004e00020001005240100680674e422d45757265636f6d2d43550003001100000004000b4002f859000bc614e0000000aa000a80000000c74003110300';
 const groups = WIRE.match(/.{4}/g) || [];
