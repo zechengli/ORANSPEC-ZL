@@ -813,15 +813,18 @@ function buildStateGraph(st, big){
   const names = Object.keys(others);
   const h = Math.max(110, (names.length-1>0 ? (names.length-1)*rowH : 0) + 88);
   const cy = h/2;
-  const fs = (st.length>20 ? 8.2 : 9.3)*fB;
   const nbw = (n,f) => Math.max(64, n.length*f*0.94 + 18);
-  const lw = nbw(lab[st] || st, fs);
+  // cap the font so no box ever exceeds ~40% of the canvas width
+  const fontFor = (n, base) => Math.min(base, (0.42*W-18)/(Math.max(1,n.length)*0.94));
+  const sl0 = lab[st] || st;
+  const fs = fontFor(sl0, (sl0.length>20 ? 8.2 : 9.3)*fB);
+  const lw = nbw(sl0, fs);
   const loopsW = loops.length ? 26 + 20*(loops.length-1) : 0;
   const ccx = 20 + lw/2 + 10 + loopsW;
   let g = '';
   names.forEach(function(n, i){
     const nl = lab[n] || n;
-    const onfs = (nl.length>20 ? 8.2 : 9.3)*fB;
+    const onfs = fontFor(nl, (nl.length>20 ? 8.2 : 9.3)*fB);
     const onw = nbw(nl, onfs);
     const y = cy + (i-(names.length-1)/2)*rowH;
     const ox = W - 12 - onw/2;
@@ -834,8 +837,14 @@ function buildStateGraph(st, big){
       const x1 = dir==='out' ? ccx+lw/2 : ox-onw/2;
       const x2 = dir==='out' ? ox-onw/2 : ccx+lw/2;
       g += '<line x1="'+x1+'" y1="'+yL+'" x2="'+(x2-2)+'" y2="'+yL+'" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#'+mid+')"/>';
-      const lbl = Object.keys(dirs[dir]).map(function(m){ const c=dirs[dir][m]; return esc(m)+(c>1?' x'+c:''); }).join(', ');
+      let lbl = Object.keys(dirs[dir]).map(function(m){ const c=dirs[dir][m]; return esc(m)+(c>1?' x'+c:''); }).join(', ');
       const lfs = (lbl.length>30 ? 7.2 : 8.6)*fB;
+      // elide labels wider than the free gap, so they never slide under any box
+      const gapX = (ox-onw/2) - (ccx+lw/2) - 20;
+      if (lbl.length*lfs*0.55 > gapX){
+        const keep = Math.max(8, Math.floor(gapX/(lfs*0.55))-1);
+        lbl = lbl.slice(0, keep)+'\u2026';
+      }
       g += '<text x="'+((x1+x2)/2)+'" y="'+(yL-5)+'" text-anchor="middle" font-size="'+lfs+'" class="svgmono" style="paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round">'+lbl+'</text>';
     });
     const isSeed = seedSet.has(n);
@@ -928,19 +937,28 @@ function renderEnum(){
       E.n_paths+' cases, none an unsolicited F1-Setup-Response. (This framing modeled the attack '+
       'differently — see the funnel in Stage 3.)</p>';
   } else {
-    box.innerHTML = E.cu07.map(function(c){
-      const single = c.seq.length===1, crash = single;
-      return '<div class="cucard"><div class="cuhead"><span class="cid">case '+c.id+'</span>'+
-        '<span class="ctag '+(crash?'':'ok')+'">'+(crash?'executed · crashed the CU (exit 139)':'kept · not the recorded run')+'</span>'+
-        '<span class="cn">'+c.seq.length+' message'+(c.seq.length>1?'s':'')+'</span></div>'+
-        c.seq.map(function(s2,i){
-          return '<div class="custep '+(single?'bad':'')+'"><span class="csi">'+(i+1)+'</span>'+
-            '<span class="csm">'+esc(s2.m)+'</span><span class="csie">'+esc(s2.ie)+'</span></div>';
-        }).join('') + '</div>';
-    }).join('') + '<p class="note">Both cases open with the same illegal move — an '+
-      '<b>F1-Setup-Response with no Request outstanding</b> (the drop mutation removes the '+
-      'F1-Setup-Request from a legal [Setup-Request, …, Setup-Response] sequence). Case '+
-      E.cu07[E.cu07.length-1].id + ', the single-message one, is what the recorded run actually sent.</p>';
+    const lastId = E.cu07[E.cu07.length-1].id;
+    box.innerHTML = '<p class="note"><b>Both cases come from ONE move.</b> A legal F1 conversation starts '+
+      '<span class="mono">[F1-Setup-Request, …, F1-Setup-Response, …]</span> — "hello", then "hello back". '+
+      'The drop mutation deletes the <b>F1-Setup-Request</b>. What remains begins with an '+
+      '<b>unsolicited F1-Setup-Response</b>: a "hello back" with no "hello". The fuzzer kept two versions '+
+      'of what remains — a long one and a short one:</p>' +
+      E.cu07.map(function(c){
+        const single = c.seq.length===1, crash = single;
+        return '<div class="cucard"><div class="cuhead"><span class="cid">case '+c.id+'</span>'+
+          '<span class="ctag '+(crash?'':'ok')+'">'+(crash?'executed · crashed the CU (exit 139)':'kept · not the recorded run')+'</span>'+
+          '<span class="cn">'+c.seq.length+' message'+(c.seq.length>1?'s':'')+'</span></div>'+
+          (single ? '' : '<div class="custep"><span class="csi">·</span><span class="csie">The attack is only <b>step 1</b> — '+
+            'the Response that arrives uninvited. Steps 2–6 are normal follow-up messages the fuzzer carried over '+
+            'from the legal sequence; without any completed setup they only add noise on top of an already-broken session.</span></div>')+
+          c.seq.map(function(s2,i){
+            return '<div class="custep '+(single?'bad':'')+'"><span class="csi">'+(i+1)+'</span>'+
+              '<span class="csm">'+esc(s2.m)+'</span><span class="csie">'+esc(s2.ie)+'</span></div>';
+          }).join('') + '</div>';
+      }).join('') +
+      '<p class="note">Same attack, different length. Case 16 keeps everything left after the deletion; '+
+      'case '+lastId+' keeps <b>only the illegal first message</b> — the purest form: 1 message, no hello, '+
+      'and the CU dies on it. That one is what the recorded run actually sent.</p>';
   }
 }
 
