@@ -870,7 +870,20 @@ abbr{cursor:help}
     deterministic Python applied <em>afterwards</em>, and it is where the model's raw machine meets
     reality for the first time.</p>
 
-    <h3 style="font-size:16px;margin:26px 0 2px">From seed to machine — ARCANE's <code class="mono">merge_pta</code>, no model in the loop</h3>
+    <h3 style="font-size:16px;margin:26px 0 2px">Step 1 — the shrink: <span class="num" id="shrink-in">11</span> edges go in, <span class="num" id="shrink-fit">7</span> fit</h3>
+    <p class="note">Before <code class="mono">merge_pta</code> can run, the seed has to fit ARCANE's
+    container — and it does not, fully. The LLM wrote its transitions as a <b>list</b>: a list can say
+    "the <code class="mono">F1_SETUP_RESPONSE</code> arrives at <code class="mono">F1_SETUP_PENDING</code>"
+    four times, each copy with different IEs. ARCANE's model is a <b>nested dict</b>,
+    <code class="mono">{source: {target: one edge}}</code> — a dict key cannot repeat, so
+    <b>each (source → target) pair holds exactly one edge</b>. The conversion walks the list top to
+    bottom: the first copy of every pair is kept, every later parallel copy is logged
+    (<code class="mono">_dropped_parallel_edges</code>) and dropped. The rule here judges nothing
+    right or wrong — it is only "what fits".</p>
+    <div class="tw" id="shrink-table"></div>
+    <p class="note" id="shrink-verdict"></p>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">Step 2 — the growth: ARCANE's <code class="mono">merge_pta</code>, no model in the loop</h3>
     <p class="note">The LLM's job ended with the seed JSON in Stage&nbsp;2. Everything from here down is
     its counterpart: post-processing. Ordinary deterministic Python —
     <code class="mono">ARCANEModelRefiner.merge_pta</code>,
@@ -882,7 +895,6 @@ abbr{cursor:help}
     same machine, every run.</p>
 
     <div class="facts" id="rfacts"></div>
-    <p class="note" id="pdrop"></p>
 
     <details style="margin:12px 0">
       <summary>How refinement did it: <span class="enumns" id="re-sum"></span></summary>
@@ -1704,7 +1716,7 @@ function renderAll(){
     [d.thinking_chars.toLocaleString(),'thinking chars*']
   ].map(([v,k])=>`<div class="fact"><div class="v num">${v}</div><div class="k">${k}</div></div>`).join('');
   renderEdges(); renderFunnel(); renderLedger(); renderEnum();
-  $('#pdrop').innerHTML = d.pdrop;
+  renderShrink();
 }
 
 function droppedParallelEdges(D){
@@ -1714,6 +1726,51 @@ function droppedParallelEdges(D){
     if (seen.has(k)) dropped.push(t); else seen.add(k);
   });
   return dropped;
+}
+
+function renderShrink(){
+  const D = cur();
+  const trs = D.fsm.transitions;
+  const seen = {}, order = [];
+  trs.forEach(t=>{
+    const k = t.from+'>'+t.to;
+    if(!seen[k]){ seen[k] = {m:t.MessageType, f:t.from, to:t.to, n:0}; order.push(k); }
+    seen[k].n++;
+  });
+  const kept = order.length, droppedN = trs.length - kept;
+  $('#shrink-in').textContent = trs.length;
+  $('#shrink-fit').textContent = kept;
+  const dup = order.filter(k=>seen[k].n>1);
+  if(dup.length){
+    $('#shrink-table').innerHTML = '<table><thead><tr><th>the (source → target) pair that repeated</th><th>message</th><th>raw copies</th><th>kept</th><th>dropped</th></tr></thead><tbody>'
+      + dup.map(k=>{ const p = seen[k];
+        return '<tr><td class="mono" style="font-size:12px">'+esc(p.f)+' → '+esc(p.to)+'</td>'
+          + '<td class="mono" style="font-size:12px">'+esc(p.m)+'</td>'
+          + '<td class="num">'+p.n+'</td><td class="num">1</td>'
+          + '<td class="num" style="color:var(--fault)">'+(p.n-1)+'</td></tr>'; }).join('')
+      + '</tbody></table>'
+      + '<p class="note" style="margin-top:8px">The other '+(kept-dup.length)+' pair'+((kept-dup.length===1)?'':'s')
+      + ' appeared once and passed through untouched.</p>';
+  } else {
+    $('#shrink-table').innerHTML = '<p class="note">Every (source → target) pair appeared once — nothing repeated, nothing to shrink.</p>';
+  }
+  const big = dup.length ? dup.sort((a,b)=>seen[b].n-seen[a].n)[0] : null;
+  let V = '';
+  if(RUN==='A'){
+    V = 'A&rsquo;s '+trs.length+' edges were '+kept+' ideas restated with different emphasis — the '
+      + '<code class="mono">'+esc(seen[big].m)+'</code> self-loop at <code class="mono">'+esc(seen[big].f)
+      + '</code> alone was written '+seen[big].n+' times, each copy with different IEs and notes. '
+      + 'Nothing wrong was dropped, and nothing extra survived either.';
+  } else if(RUN==='B'){
+    V = 'The formal-methods prompt demanded per-IE precision, so the same arrow got written again and '
+      + 'again with different IE configurations: '+kept+' pairs carrying '+trs.length+' edges. '
+      + droppedN+' of '+trs.length+' never reach <code class="mono">merge_pta</code> — the precision B paid for in Stage&nbsp;2 (2.4&times; A&rsquo;s JSON) is spent at the container door.';
+  } else {
+    V = 'Zero drops — but not because the seed is tidy: '+trs.length+' edges, '+kept+' pairs. '
+      + 'The noob prompt produced fewer edges, not cleaner ones. A 100% conversion survival rate '
+      + 'is survival of content nothing downstream can check.';
+  }
+  $('#shrink-verdict').innerHTML = V;
 }
 
 function renderLedger(){
