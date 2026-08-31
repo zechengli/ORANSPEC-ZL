@@ -622,7 +622,7 @@ abbr{cursor:help}
         <div class="eatxt">Last pass is hygiene. F1AP is a family of elementary procedures — the expert
         draws F1 Setup alone and gates every UE-associated procedure behind COMPLETE rather than melting
         them into one global soup of states. And the information elements stay <b>data</b>: they ride
-        on the edges as annotations (that is what the mutation pass in Stage&nbsp;3 will chew on);
+        on the edges as annotations (that is what the mutation pass in Stage&nbsp;4 will chew on);
         an IE never gets a state of its own.</div>
         <div class="eafsm"><svg viewBox="0 0 280 140" role="img" aria-label="after step 6: the finished five-state, eight-edge machine">
           <circle cx="22" cy="24" r="8" fill="var(--etsi-soft)" stroke="var(--fault)" stroke-width="1.4"/>
@@ -716,7 +716,7 @@ abbr{cursor:help}
 
   <hr class="rule">
 
-  <!-- ================ 2 THE LLM'S CONVERSION: SEED + REFINEMENT ================ -->
+  <!-- ================ 2 THE LLM'S CONVERSION: RAW SEED ================ -->
   <section class="stage" id="s2">
     <div class="eyebrow"><span class="n">STAGE 2</span><span class="t">Spec → FSM — the LLM's conversion</span></div>
     <h2>No expert: an LLM turns the spec into a raw seed FSM</h2>
@@ -747,14 +747,18 @@ abbr{cursor:help}
       </button>
     </div>
 
+    <h3 style="font-size:16px;margin:26px 0 2px">The exact prompt sent to the model</h3>
+    <div class="note" id="prompt-when" style="margin:8px 0 4px"></div>
+    <pre class="paper" id="prompt-pre" style="font-size:13px;padding:16px 20px;white-space:pre-wrap"></pre>
+    <p class="note">After this prompt, the <b>same spec feed was appended verbatim for all three
+    framings</b> — the §8.2.3 + §9.2.1.5 prose and the v16.3.1 ASN.1 (~19&thinsp;KB ≈ 4&thinsp;300 of
+    the input tokens). What differs between framings is only the instruction you see above.</p>
+
     <div class="facts" id="facts"></div>
 
     <div id="illegal-wrap"></div>
 
     <h3 style="font-size:16px;margin:26px 0 2px">Enumerate the seed — framing <span id="enum-run">A</span>, nothing hidden</h3>
-    <p class="note">Every count in the strip above, drawn out: the seed machine as a picture,
-    then every seed state's own graph. The seed JSON is where the model's contribution ends —
-    what refinement does to it is <b>Stage&nbsp;3</b>, and so are the cases that survive the funnel.</p>
 
     <div class="fsvgwrap">
       <svg id="fsm-svg" viewBox="0 0 940 380" role="img" aria-label="seed FSM drawing"></svg>
@@ -774,13 +778,6 @@ abbr{cursor:help}
       (one circle per raw copy the LLM wrote; see the legend in the drawing above).</div>
     </div>
 
-    <h3 style="font-size:16px;margin:26px 0 2px">The exact prompt sent to the model</h3>
-    <div class="note" id="prompt-when" style="margin:8px 0 4px"></div>
-    <pre class="paper" id="prompt-pre" style="font-size:13px;padding:16px 20px;white-space:pre-wrap"></pre>
-    <p class="note">After this prompt, the <b>same spec feed was appended verbatim for all three
-    framings</b> — the §8.2.3 + §9.2.1.5 prose and the v16.3.1 ASN.1 (~19&thinsp;KB ≈ 4&thinsp;300 of
-    the input tokens). What differs between framings is only the instruction you see above.</p>
-
     <p class="note"><b>Why this stage matters:</b> ARCANE's published seed model carries <em>no</em>
     direction information — the gap that makes an unsolicited Response look walkable. Framings A and B
     preserve it (C half-does: the noob tagged who-sends-whom, but in fields the pipeline never reads).
@@ -791,10 +788,10 @@ abbr{cursor:help}
 
   <hr class="rule">
 
-  <!-- ================ 3 FUNNEL ================ -->
+  <!-- ================ 3 POST-PROCESSING: REFINEMENT ================ -->
   <section class="stage" id="s3">
-    <div class="eyebrow"><span class="n">STAGE 3</span><span class="t">Post-processing: refinement, test cases &amp; elimination</span></div>
-    <h2>Post-processing: merge_pta grows the seed, then the funnel keeps it testable</h2>
+    <div class="eyebrow"><span class="n">STAGE 3</span><span class="t">Post-processing: refinement</span></div>
+    <h2>Post-processing: merge_pta grows the seed</h2>
     <p class="lede">Nothing in this stage involves the LLM. The seed JSON from Stage&nbsp;2 is finished
     model output — merge_pta is not built into the prompt and not part of the generation; it is
     deterministic Python applied <em>afterwards</em>, and it is where the model's raw machine meets
@@ -860,8 +857,15 @@ abbr{cursor:help}
       </table></div>
     </details>
 
-    <h3 style="font-size:16px;margin:26px 0 2px">How 16 paths become one attack</h3>
-    <p class="lede" style="font-size:15px">State space explodes; the funnel keeps it testable. Every pruning stage is
+  </section>
+
+  <hr class="rule">
+
+  <!-- ================ 4 FUNNEL: TEST CASES & ELIMINATION ================ -->
+  <section class="stage" id="s4">
+    <div class="eyebrow"><span class="n">STAGE 4</span><span class="t">Test cases &amp; elimination</span></div>
+    <h2>How 16 paths become one attack</h2>
+    <p class="lede">State space explodes; the funnel keeps it testable. Every pruning stage is
     seeded and logged (<code class="mono">seed 20260828</code>) — this is the answer to
     <em>"how do you eliminate test cases?"</em></p>
     <div class="fun" id="fun"></div>
@@ -878,9 +882,9 @@ abbr{cursor:help}
 
   <hr class="rule">
 
-  <!-- ================ 4 APER ================ -->
-  <section class="stage" id="s4">
-    <div class="eyebrow"><span class="n">STAGE 4</span><span class="t">ASN.1 concretization</span></div>
+  <!-- ================ 5 APER ================ -->
+  <section class="stage" id="s5">
+    <div class="eyebrow"><span class="n">STAGE 5</span><span class="t">ASN.1 concretization</span></div>
     <h2>68 bytes on the wire</h2>
     <p class="lede">Abstract cases become bytes the same way ARCANE does it: a captured real
     F1-Setup-Response (<code class="mono">trace[1]</code>) as template, pycrate as the codec,
@@ -895,9 +899,9 @@ abbr{cursor:help}
 
   <hr class="rule">
 
-  <!-- ================ 5 EXECUTION ================ -->
-  <section class="stage" id="s5" style="padding-bottom:30px">
-    <div class="eyebrow"><span class="n">STAGE 5</span><span class="t">Execution &amp; monitoring</span></div>
+  <!-- ================ 6 EXECUTION ================ -->
+  <section class="stage" id="s6" style="padding-bottom:30px">
+    <div class="eyebrow"><span class="n">STAGE 6</span><span class="t">Execution &amp; monitoring</span></div>
     <h2>The recorded run</h2>
     <p class="lede">A fresh OAI gNB-CU (ARCANE's <code class="mono">sdran/sdran-mobicom:v1</code> image
     under Intel SDE) accepts the association on F1-C :38472. One unsolicited F1-Setup-Response
@@ -918,8 +922,8 @@ abbr{cursor:help}
 
   <hr class="rule">
 
-  <!-- ================ 6 FULL DISCLOSURE ================ -->
-  <section class="stage" id="s6" style="padding-bottom:30px">
+  <!-- ================ 7 FULL DISCLOSURE ================ -->
+  <section class="stage" id="s7" style="padding-bottom:30px">
     <div class="eyebrow"><span class="n">FULL DISCLOSURE</span><span class="t">Where we did wrong</span></div>
     <h2>What this reproduction got wrong, guessed, or changed</h2>
     <p class="lede">Every number on this page is real and computed from artifacts — but the
@@ -952,11 +956,11 @@ abbr{cursor:help}
         enumeration, mutation passes, funnel bookkeeping, encoding and execution harness are our
         rebuild — a faithful-in-spirit copy, checked against ARCANE where artifacts existed, but not
         their code. Bugs in it are ours.</td>
-        <td>Stages 3–5</td></tr>
+        <td>Stages 4–6</td></tr>
         <tr><td><b>We raised <span class="mono">max_paths</span> 10 → 200.</b> ARCANE's shipped cap
         never reaches any response branch. Without this deliberate deviation the CU07 path does not
-        exist in framings A and B, and the whole demo would stop at Stage 3 with zero cases.</td>
-        <td>Stage 3, "the seam worth knowing"</td></tr>
+        exist in framings A and B, and the whole demo would stop at Stage 4 with zero cases.</td>
+        <td>Stage 4, "the seam worth knowing"</td></tr>
         <tr><td><b>ARCANE's container silently drops parallel edges, and we inherit it.</b>
         The model format allows one transition per (source, target), so 4 of framing A's 11 LLM edges
         (6 of B's 13; none of C's 7) vanished at conversion — a real fidelity loss we did not fix, only logged.</td>
@@ -972,12 +976,12 @@ abbr{cursor:help}
         cases; we kept only the 2 unsolicited-Response ones and executed just 1 (case 31). Case 16 sits
         in the list as kept-but-never-run. This is a CU07 demo, not a reproduction of ARCANE's full
         multi-bug campaign.</td>
-        <td>Stage 3 funnel, Stage 5</td></tr>
+        <td>Stage 4 funnel, Stage 6</td></tr>
         <tr><td><b>The crash ran under emulation on one image.</b> The recorded SIGSEGV came from
         ARCANE's <span class="mono">sdran/sdran-mobicom:v1</span> OAI CU under Intel SDE (the host CPU
         lacks AVX-512), once, on 2026-08-28. We did not reproduce it natively, across builds, or across
         runs — one emulated kill is our evidence.</td>
-        <td>Stage 5</td></tr>
+        <td>Stage 6</td></tr>
       </tbody>
     </table></div>
     <p class="note"><b>What we deliberately did <em>not</em> do:</b> fix ARCANE's direction-less seed format,
@@ -986,7 +990,7 @@ abbr{cursor:help}
     walls and all — and put every deviation from ARCANE's shipped behavior on this one list.</p>
   </section>
 
-  <section class="stage" id="s7" style="padding-bottom:30px">
+  <section class="stage" id="s8" style="padding-bottom:30px">
     <div class="eyebrow"><span class="n">CONCLUSION</span><span class="t">Why framing A is the way to go</span></div>
     <h2>Three prompts, one pipeline — what the comparison actually shows</h2>
     <p class="lede">The scoreboard first, then what it means. Every number below is the framing's
@@ -1202,10 +1206,10 @@ function renderFsmSvg(){
     cap += 'This framing drew <b>no self-loops</b> at all — no state keeps a message and stays put. ';
   }
   cap += parN
-    ? (loopN ? 'refinement (Stage 1 above) keeps one edge per (source, target) pair, which is part of the '
-             : 'Refinement (Stage 1 above) keeps one edge per (source, target) pair, which is part of the ')
+    ? (loopN ? 'refinement (Stage 3 below) keeps one edge per (source, target) pair, which is part of the '
+             : 'Refinement (Stage 3 below) keeps one edge per (source, target) pair, which is part of the ')
       + T.length+' &rarr; '+D.base.transitions+' collapse.'
-    : 'No two edges share a (source, target) pair, so there is nothing for the container to collapse: all '+T.length+' pass through to refinement (Stage 1 above).';
+    : 'No two edges share a (source, target) pair, so there is nothing for the container to collapse: all '+T.length+' pass through to refinement (Stage 3 below).';
   $('#fsm-cap').innerHTML = cap;
 }
 function renderSeedGraphs(){
@@ -1429,7 +1433,7 @@ function renderRefine(){
     '</tbody></table></div>';
   h += '<div class="custep"><span class="csi">3</span><span class="csm" style="flex:none;min-width:120px">refined machine → fuzz stages</span><span class="csie">'+
     'Only after code step 2 finishes ('+seedN+' → '+refN+' states) do the fuzzer’s stages run — path enumeration, mutations, '+
-    'encoding (Stage 3 and 4) — on the refined machine, never on the LLM’s raw output.</span></div>';
+    'encoding (Stages 4 and 5) — on the refined machine, never on the LLM’s raw output.</span></div>';
   h += '<p class="note"><b>The ripple rule — why whole suffixes get copied.</b> A carved state has no outgoing edges yet, and '+
     'the walk <em>moves onto it</em>. So the trace’s next message has nothing to compare against and is forced to carve again — '+
     'one surprising message can drag its whole tail of follow-ups into the machine as fresh states.</p>';
@@ -1530,10 +1534,10 @@ function renderEnum(){
       '<p class="note">Same attack, different length. Case 16 keeps everything left after the deletion; '+
       'case '+lastId+' keeps <b>only the illegal first message</b> — the purest form: 1 message, no hello, '+
       'and the CU dies on it. '+(RUN==='A' ? 'That one is what the recorded run actually sent.'
-        : 'Framing '+RUN+' produced the same two shapes as A — but the live execution (Stage 5) was run once, on framing A, case 31.')+'</p>'
+        : 'Framing '+RUN+' produced the same two shapes as A — but the live execution (Stage 6) was run once, on framing A, case 31.')+'</p>'
       :
       '<p class="note">Framing '+RUN+' kept one shape of the attack'+(RUN==='A' ? '' :
-        ' — the live execution (Stage 5) was run once, on framing A, case 31')+'.</p>');
+        ' — the live execution (Stage 6) was run once, on framing A, case 31')+'.</p>');
   }
 }
 
@@ -1653,7 +1657,7 @@ function ledDetail(which){
   } else if (which==='fin'){
     card.innerHTML = `<b>⑤ ${D.refined.states} states · ${D.refined.transitions} edges — the refined model.</b>
       Seed states are kept, trace states extend them, and the result is what the test-case
-      generator will enumerate in the funnel just below.
+      generator will enumerate in the funnel in <b>Stage 4</b>.
       <div style="margin-top:8px">The point of the whole step, in one line: the refinement is what makes
       the attack <em>reachable</em>. The refined model now carries <b>F1_SETUP_RESPONSE edges the traces
       actually exercised</b> — and a sequence-level drop-mutation on one of those paths is what fires an
