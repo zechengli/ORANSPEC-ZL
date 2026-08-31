@@ -844,36 +844,19 @@ abbr{cursor:help}
     <em>performed</em> best is a separate question — see the Conclusion.</p>
 
     <h3 style="font-size:16px;margin:26px 0 2px">我的解读</h3>
-
-    <p class="note"><b>一 · 把意图说全 —— 七件事：</b></p>
-    <ol class="note" style="margin:2px 0 0;padding:14px 20px 14px 42px;font-size:13px;line-height:1.9">
-      <li><b>面向谁</b>——给模型一个身份："protocol engineer"，它就用这一行的惯例来填空；C 没给角色，
-      模型只能从"i need one of those state machine things"里猜。</li>
-      <li><b>要什么</b>——"finite state machine"是有标准含义的名词，"one of those state machine
-      things"只是半个名词。</li>
-      <li><b>为什么</b>——"for conformance testing"一个短语，让后面每个选择都有了判断标准；B 通篇
-      不说目的，就成了为了严谨而严谨。</li>
-      <li><b>用什么词汇</b>——A 点名 IE validity（valid / invalid / missing），恰好是下游 mutation
-      pass 会翻转、流水线真正消费的字段；C 一个 IE 都没提，种子 0/7 条边带 IE 列表。</li>
-      <li><b>按什么格式</b>——精确 JSON、"no prose outside the JSON"是合同；"i think the format is
-      something like…"是把合同写成疑问句。</li>
-      <li><b>做到哪</b>——"at least the F1 Setup procedure and the UE-context procedures"；C 一边说
-      "all of them, whatever you find"，一边说"dont spend too much effort on the details"，自己打脸。</li>
-      <li><b>照哪取材</b>——"from the message-definition tables"，指到源头；抽象的要求只得到抽象的
-      回答，具体的要求才得到可检查的回答。</li>
-    </ol>
-
-    <p class="note"><b>二 · 两条路线：</b>①把提示词说得更准（A 的路线），产出就更准、更可检查；
-    ②把模型提前重新训练得更小更专，把知识从提示词搬进权重里，以后不用每次都说清楚。本实验只能走
-    第一条——这台机器只连得上 glm-5.3-flash。</p>
-
-    <p class="note"><b>三 · 一个转折：</b>提示词质量并没有决定 CU07 的发现——C 那个烂提示词同样产出
-    2 个 CU07 家族用例，发现本身靠的是 merge_pta、max_paths 补丁和与种子无关的 mutation。提示词
-    真正决定的是<b>种子的可信度</b>：C 碰对了答案，但它的种子里有把本地定时器当消息的伪迁移、没有
-    IE 列表，经不起检查；A 的价值不是"找到更多"，而是每一步都留了可以回头验证的证据。</p>
-
-    <p class="note"><b>一句话总结：更准的提示词买到的是可检查性，微调买到的是省话，而发现本身，在这条
-    流水线里靠的是后处理。</b></p>
+    <p class="note">要提高 LLM 从 spec 提取 FSM 的质量，有两个方法。</p>
+    <p class="note"><b>方法一：拿经过特殊训练的 O-RAN Spec LLM。</b>这条路我们做不到。一方面，现在
+    找不到这样的 LLM；另一方面，就算自己训练，从人力成本考虑也只能做小的 case，没有一个 LLM 可以
+    真正囊括所有的 O-RAN 知识。</p>
+    <p class="note"><b>方法二：提高自己提示词的精准度。</b>这是本实验走的路。A、B、C 三个提示词最后
+    都找到了 CU07 这个 bug，说明发现本身不取决于提示词的好坏，扛住发现的是后面的 merge_pta、
+    max_paths 补丁和与种子无关的 mutation。</p>
+    <p class="note"><b>但 A 的方法最好。</b>A 的提示词把开发者的意图说得最全：给了模型角色（protocol
+    engineer），说清了目的（conformance testing），点名了下游真正会用的词汇（IE 的 valid / invalid /
+    missing），规定了强制的 JSON 输出，划了范围（F1 Setup 加 UE-context procedures），指了取材来源
+    （message-definition tables）。模型没有一件事需要靠猜，所以 A 的种子每条边都带方向和完整的
+    IE 列表，经得起检查。C 同样找到了 bug，但它的种子里有把本地定时器当消息的伪迁移，没有 IE 列表，
+    只是碰对了答案，种子经不起检查。所以 A 好在产出的模型可信、可检查，不是好在找到更多。</p>
   </section>
 
   <hr class="rule">
