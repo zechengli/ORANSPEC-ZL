@@ -379,15 +379,193 @@ abbr{cursor:help}
   </section>
   <hr class="rule">
 
-  <!-- ================ 1 THE LLM ================ -->
+  <!-- ================ 1 SPEC -> FSM: MANUAL VS LLM ================ -->
   <section class="stage" id="s1">
-    <div class="eyebrow"><span class="n">STAGE 1</span><span class="t">Spec → FSM via LLM</span></div>
+    <div class="eyebrow"><span class="n">STAGE 1</span><span class="t">Spec → FSM — manual vs LLM</span></div>
+    <h2>Two ways to turn prose into a machine</h2>
+    <p class="lede">Everything later on this page — the enumerated paths, the mutations, the 68 bytes —
+    needs one artifact: a finite state machine of F1 Setup. There are two ways to get one out of
+    TS&nbsp;138&nbsp;473: <b>an expert draws it by hand</b>, or <b>an LLM writes a seed</b> and ARCANE's
+    own refiner grows it against captured traffic. This stage shows both routes. Fair warning:
+    the expert half is authored illustration — no human built it for this campaign, and it is on
+    the Full Disclosure list for exactly that. The pipeline half is real: the same artifacts and
+    numbers the rest of the page runs on, for the framing you pick in Stage&nbsp;2 (A by default).</p>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">Route 1 — by hand: what an FSM &amp; O-RAN expert would do in this setting</h3>
+    <div class="eabox">
+      <div class="earow">
+        <div class="ealab"><i class="dot bl"></i>1 · start from the ASN.1</div>
+        <div class="eatxt">The procedure block (Stage&nbsp;0, ASN.1 tab) is the skeleton:
+        <span class="mono">f1Setup ::= { INITIATING MESSAGE F1SetupRequest (DU→CU), SUCCESSFUL OUTCOME
+        F1SetupResponse (CU→DU), UNSUCCESSFUL OUTCOME F1SetupFailure (CU→DU) }</span>.
+        Direction lives in the type system, not in opinion: every Response edge is born pointing
+        CU&nbsp;→&nbsp;DU, and "the DU sends a Response" is not an edge a careful model can draw.</div>
+      </div>
+      <div class="earow">
+        <div class="ealab"><i class="dot bl"></i>2 · one machine per procedure</div>
+        <div class="eatxt">F1AP is a family of elementary procedures; the expert draws F1 Setup alone —
+        IDLE → SETUP_REQUESTED → COMPLETE | FAILED | TIME_WAIT — and gates every UE-associated procedure
+        behind COMPLETE, rather than melting them all into one global soup of states.</div>
+      </div>
+      <div class="earow">
+        <div class="ealab"><i class="dot bl"></i>3 · guards on every transition</div>
+        <div class="eatxt">Each transition carries the message type, the direction, the Transaction-ID
+        match, and IE presence per the ASN.1 <span class="mono">PRESENCE</span> clauses.
+        Time&nbsp;To&nbsp;Wait becomes a guarded backoff state — a timer, never a "message."</div>
+      </div>
+      <div class="earow">
+        <div class="ealab"><i class="dot bl"></i>4 · close the machine</div>
+        <div class="eatxt">For every state, every arrival with no legal transition gets an
+        <b>explicit reject edge</b>: on IDLE, an unsolicited F1-Setup-Response →
+        discard&nbsp;+&nbsp;Error&nbsp;Indication (F1AP criticality rules, §10). The killer message
+        <em>is</em> in the model — marked forbidden, with
+        <span class="mono">expected_result: reject</span>.</div>
+      </div>
+      <div class="earow">
+        <div class="ealab"><i class="dot bl"></i>5 · IEs are data, not structure</div>
+        <div class="eatxt">IE-validity annotations ride on the edges to feed mutation later;
+        an Information Element never gets a state of its own.</div>
+      </div>
+      <div class="earow">
+        <div class="ealab"><i class="dot okd"></i>what you get</div>
+        <div class="eatxt">About <b>5 states and 8 edges</b>, every state name means something, and another
+        expert can review the whole thing in an afternoon. The costs are real too: days of scarce expert
+        time, and one human's reading of the spec — mistakes would be systematic, not random. And there is
+        a format trap: closing the machine thoroughly (step&nbsp;4) writes <b>many reject self-loops on one
+        state</b>, while ARCANE's container keeps only <b>one transition per (source, target) pair</b> —
+        the hand-drawn machine's most valuable edges are exactly the ones this pipeline would throw away.
+        Stage&nbsp;2's framing B is that exact story with an LLM in the expert's seat.</div>
+      </div>
+    </div>
+
+    <div class="fsvgwrap">
+      <svg viewBox="0 0 940 330" role="img" aria-label="the hand-drawn expert machine for F1 Setup">
+        <defs>
+          <marker id="earr" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="var(--etsi)"/></marker>
+          <marker id="earrf" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="var(--fault)"/></marker>
+        </defs>
+        <line x1="172" y1="90" x2="369" y2="90" stroke="var(--etsi)" stroke-width="1.6" marker-end="url(#earr)"/>
+        <text x="270" y="78" text-anchor="middle" font-size="10.5" class="svgmono">F1-Setup-Request · DU→CU</text>
+        <line x1="531" y1="90" x2="739" y2="90" stroke="var(--etsi)" stroke-width="1.6" marker-end="url(#earr)"/>
+        <text x="637" y="78" text-anchor="middle" font-size="10.5" class="svgmono">F1-Setup-Response · CU→DU</text>
+        <path d="M 739 106 Q 637 150 531 106" fill="none" stroke="var(--etsi)" stroke-width="1.6" marker-end="url(#earr)"/>
+        <text x="637" y="146" text-anchor="middle" font-size="10.5" class="svgmono">re-run F1 Setup (§8.2.3.1)</text>
+        <line x1="450" y1="110" x2="552" y2="230" stroke="var(--etsi)" stroke-width="1.6" marker-end="url(#earr)"/>
+        <text x="470" y="178" text-anchor="middle" font-size="10.5" class="svgmono" style="paint-order:stroke;stroke:#fff;stroke-width:3px">F1-Setup-Failure · CU→DU</text>
+        <path d="M 478 230 Q 445 170 458 112" fill="none" stroke="var(--etsi)" stroke-width="1.6" marker-end="url(#earr)"/>
+        <text x="400" y="150" text-anchor="middle" font-size="10.5" class="svgmono" style="paint-order:stroke;stroke:#fff;stroke-width:3px">retry (no TTW)</text>
+        <line x1="513" y1="250" x2="241" y2="250" stroke="var(--etsi)" stroke-width="1.6" marker-end="url(#earr)"/>
+        <text x="376" y="240" text-anchor="middle" font-size="10.5" class="svgmono">Time To Wait present → timer</text>
+        <line x1="200" y1="232" x2="396" y2="114" stroke="var(--etsi)" stroke-width="1.6" marker-end="url(#earr)"/>
+        <text x="255" y="185" text-anchor="middle" font-size="10.5" class="svgmono" style="paint-order:stroke;stroke:#fff;stroke-width:3px">retry after wait ≥ TTW</text>
+        <circle cx="120" cy="142" r="13" fill="var(--etsi-soft)" stroke="var(--fault)" stroke-width="1.6" marker-end="url(#earrf)"/>
+        <text x="120" y="182" text-anchor="middle" font-size="10.5" style="fill:var(--fault)">unsolicited F1-Setup-Response</text>
+        <text x="120" y="196" text-anchor="middle" font-size="10.5" style="fill:var(--fault)">→ discard + Error Indication</text>
+        <g><rect x="70" y="72" width="100" height="36" rx="3" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.4"/><text x="120" y="94" text-anchor="middle" font-size="11" class="svgmono svgnodetext">IDLE</text></g>
+        <g><rect x="375" y="72" width="150" height="36" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.4"/><text x="450" y="94" text-anchor="middle" font-size="11" class="svgmono svgnodetext">SETUP_REQUESTED</text></g>
+        <g><rect x="745" y="72" width="110" height="36" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.4"/><text x="800" y="94" text-anchor="middle" font-size="11" class="svgmono svgnodetext">COMPLETE</text></g>
+        <g><rect x="515" y="232" width="90" height="36" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.4"/><text x="560" y="254" text-anchor="middle" font-size="11" class="svgmono svgnodetext">FAILED</text></g>
+        <g><rect x="125" y="232" width="110" height="36" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.4"/><text x="180" y="254" text-anchor="middle" font-size="11" class="svgmono svgnodetext">TIME_WAIT</text></g>
+      </svg>
+      <div class="fsvgcap">Route 1's machine, drawn by hand from the same four Stage&nbsp;0 excerpts. Note what
+      is <em>not</em> here — no trace-grown RRC procedures, no four Response states, no
+      <span class="mono">_variant</span> copies. And the one thing that is: the killer message, present as a
+      red <b>reject</b> on IDLE — an attack case built on it would come with the verdict already
+      written.</div>
+    </div>
+
+    <div class="tw"><table>
+      <thead><tr><th>the job</th><th>route 1 — the expert, by hand</th><th>route 2 — the pipeline (LLM + refine)</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">first artifact</td><td>~5 states · ~8 edges, hand-drawn</td><td>seed JSON: 4–8 states · 7–20 edges (Stage 2)</td></tr>
+        <tr><td class="mono">direction</td><td>in the type system, on every edge</td><td>whatever the prompt asked for — ARCANE's published seed format carries none</td></tr>
+        <tr><td class="mono">illegal messages</td><td>explicit reject edges</td><td>not modeled — the mutation pass manufactures them (Stage 3)</td></tr>
+        <tr><td class="mono">reality check</td><td>the expert's own reading; traces consulted by choice</td><td>18 captured CU↔DU sessions merged by <span class="mono">merge_pta</span>, deterministic</td></tr>
+        <tr><td class="mono">do states mean anything?</td><td>every one is a protocol milestone</td><td>4 F1_SETUP_RESPONSE copies, 7 <span class="mono">_variant</span>s — artifacts, shown as-built</td></tr>
+        <tr><td class="mono">cost / failure mode</td><td>days of expert time; systematic bias</td><td>minutes; seed sloppiness — even the noob prompt worked</td></tr>
+        <tr><td class="mono">fits ARCANE's container?</td><td>no — reject edges drop as parallels</td><td>yes — it is the container's own format</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">Route 2 — the pipeline's way: LLM seed, then ARCANE's <code class="mono">merge_pta</code></h3>
+    <p class="note">This is the route the campaign actually took, and everything below is its real
+    artifacts. The LLM's whole job is the seed JSON — the same spec feed, four prompts, all four
+    seeds compared in Stage&nbsp;2 below. From there on there is <b>no model in the loop</b>:
+    ordinary deterministic Python — <code class="mono">ARCANEModelRefiner.merge_pta</code>,
+    ARCANE's own code, unmodified — merges <b>18 real CU↔DU sessions</b> into the seed, one
+    message at a time (similarity 0.6·procedure + 0.4·weighted-IE). Score ≤ 0.7 grows a new
+    state; 0.7–0.95 with disagreeing IEs grows a <span class="mono">_variant</span>; above that
+    the message merges into an existing edge and nothing grows. Same seed + same traces → the
+    same machine, every run.</p>
+
+    <div class="facts" id="rfacts"></div>
+    <p class="note" id="pdrop"></p>
+
+    <details style="margin:12px 0">
+      <summary>How refinement did it: <span class="enumns" id="re-sum"></span></summary>
+      <div id="re-box"></div>
+    </details>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">Where do the numbers come from?</h3>
+    <p class="note">Click each term in the ledger — every number is computed
+    live from the selected run's real artifacts (<code class="mono">fsm.json</code>,
+    <code class="mono">initial_model.json</code>, <code class="mono">refined_fsm.dot</code>).</p>
+    <div class="ledger" id="ledger" role="tablist"></div>
+    <div class="ledcard" id="ledcard"></div>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">What <code class="mono">merge_pta</code> actually does, one trace at a time</h3>
+    <p class="note">Trace 0 of the 18, verbatim from ARCANE's
+    <code class="mono">sample_trace.json</code>: F1-Setup → Context Setup, 4 messages.</p>
+    <div class="tracebox">
+      <button id="traceGo">▶ replay trace 0</button>
+      <div class="tlane" id="tlane"></div>
+      <div class="tcap" id="tcap">Trace 0: <span class="mono">F1_SETUP_REQUEST · F1_SETUP_RESPONSE · UE_CONTEXT_SETUP_REQUEST · UE_CONTEXT_SETUP_RESPONSE</span></div>
+    </div>
+
+    <details style="margin:12px 0">
+      <summary>All <span class="enumns" id="n-rstates">41</span> refined states, one by one</summary>
+      <div class="stchips" id="st-chips"></div>
+      <div class="fsvgcap">Click any state chip to open that state's entire graph.</div>
+    </details>
+
+    <div id="sgmodal" hidden>
+      <div id="sgmodal-back"></div>
+      <div id="sgmodal-card" role="dialog" aria-modal="true" aria-labelledby="sgmodal-title">
+        <div class="sghead" id="sgmodal-head">
+          <span class="sgname" id="sgmodal-title"></span>
+          <span class="sgdesc" id="sgmodal-sub"></span>
+          <button type="button" id="sgmodal-x" aria-label="close">✕</button>
+        </div>
+        <div id="sgmodal-body"></div>
+      </div>
+    </div>
+
+    <details style="margin:12px 0">
+      <summary>All <span class="enumns" id="n-redges">44</span> refined edges, one by one</summary>
+      <div class="tw"><table id="redges">
+        <thead><tr><th>#</th><th>From</th><th>Message</th><th>To</th></tr></thead><tbody></tbody>
+      </table></div>
+    </details>
+
+    <p class="note"><b>Why two routes at all:</b> route 1 gives a machine you can <em>argue with</em> —
+    small, meaningful, expensive, opinionated. Route 2 gives a machine nobody has to understand —
+    big, artifact-laden, cheap, seed-agnostic — and it was route 2 that found CU07: the refined
+    machine left the Response reachable, and the mutation pass (Stage&nbsp;3) did the transgressing.
+    The four seeds route 2 starts from are next.</p>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ================ 2 THE LLM FRAMINGS ================ -->
+  <section class="stage" id="s2">
+    <div class="eyebrow"><span class="n">STAGE 2</span><span class="t">Spec → FSM via LLM</span></div>
     <h2>One model, four framings</h2>
     <p class="lede">The same spec feed (§8.2.3 + §9.2.1.5 prose, plus the v16.3.1 ASN.1 with
     <code class="mono">PRESENCE mandatory/optional</code> clauses) was sent to
     <b>glm-5.3-flash:cloud</b> four times. Framings A–C change only the persona;
     <b>D is our deliberate bad control</b> — a noob's vague, unorganized prompt, same spec feed,
-    same pipeline. Pick a framing — every number below this point follows your choice.</p>
+    same pipeline. Pick a framing — every number on this page, from the seed here to the refined
+    machines in Stage&nbsp;1 and the funnel in Stage&nbsp;3, follows your choice.</p>
 
     <div class="sel" role="radiogroup" aria-label="LLM framing">
       <button class="card" data-run="A" aria-pressed="false">
@@ -416,9 +594,10 @@ abbr{cursor:help}
 
     <div id="illegal-wrap"></div>
 
-    <h3 style="font-size:16px;margin:26px 0 2px">Enumerate every number — framing <span id="enum-run">A</span>, nothing hidden</h3>
+    <h3 style="font-size:16px;margin:26px 0 2px">Enumerate the seed — framing <span id="enum-run">A</span>, nothing hidden</h3>
     <p class="note">Every count in the strip above, drawn out: the seed machine as a picture,
-    then every refined state, every refined edge, and the CU07 cases one by one.</p>
+    then every seed state's own graph. This stage stops at the seed JSON — what refinement does
+    to it is Stage&nbsp;1, and the cases that survive the funnel are Stage&nbsp;3.</p>
 
     <div class="fsvgwrap">
       <svg id="fsm-svg" viewBox="0 0 940 380" role="img" aria-label="seed FSM drawing"></svg>
@@ -437,41 +616,6 @@ abbr{cursor:help}
       every transition that touches it — arrows in, arrows out, self-loops as circles on the left
       (one circle per raw copy the LLM wrote; see the legend in the drawing above).</div>
     </div>
-
-    <details style="margin:12px 0">
-      <summary>All <span class="enumns" id="n-rstates">41</span> refined states, one by one</summary>
-      <div class="stchips" id="st-chips"></div>
-      <div class="fsvgcap">Click any state chip to open that state's entire graph.</div>
-    </details>
-
-    <div id="sgmodal" hidden>
-      <div id="sgmodal-back"></div>
-      <div id="sgmodal-card" role="dialog" aria-modal="true" aria-labelledby="sgmodal-title">
-        <div class="sghead" id="sgmodal-head">
-          <span class="sgname" id="sgmodal-title"></span>
-          <span class="sgdesc" id="sgmodal-sub"></span>
-          <button type="button" id="sgmodal-x" aria-label="close">✕</button>
-        </div>
-        <div id="sgmodal-body"></div>
-      </div>
-    </div>
-
-    <details style="margin:12px 0">
-      <summary>How refinement did it: <span class="enumns" id="re-sum"></span></summary>
-      <div id="re-box"></div>
-    </details>
-
-    <details style="margin:12px 0">
-      <summary>All <span class="enumns" id="n-redges">44</span> refined edges, one by one</summary>
-      <div class="tw"><table id="redges">
-        <thead><tr><th>#</th><th>From</th><th>Message</th><th>To</th></tr></thead><tbody></tbody>
-      </table></div>
-    </details>
-
-    <details style="margin:12px 0">
-      <summary>The <span class="enumns" id="n-cu07">2</span> CU07 case(s), message by message</summary>
-      <div id="cu07box" style="margin-top:12px"></div>
-    </details>
 
     <details id="prompt-dl" hidden style="margin:16px 0">
       <summary style="cursor:pointer;font-family:var(--mono);font-size:12.5px;color:var(--etsi)">
@@ -492,38 +636,6 @@ abbr{cursor:help}
 
   <hr class="rule">
 
-  <!-- ================ 2 REFINEMENT ================ -->
-  <section class="stage" id="s2">
-    <div class="eyebrow"><span class="n">STAGE 2</span><span class="t">Model ↔ reality</span></div>
-    <h2>Refinement with ARCANE's own algorithm</h2>
-    <p class="lede">The LLM's job ended at the seed JSON (Stage 1). From here on there is
-    <b>no model in the loop</b>: ordinary deterministic Python — <code class="mono">ARCANEModelRefiner.merge_pta</code>,
-    ARCANE's own code, unmodified — merges <b>18 real CU↔DU sessions</b> into it, one message at a time
-    (similarity 0.6·procedure + 0.4·weighted-IE). Score ≤ 0.7 grows a new state; 0.7–0.95 with
-    disagreeing IEs grows a <span class="mono">_variant</span>; above that the message merges into an
-    existing edge and nothing grows. Same seed + same traces → the same machine, every run.</p>
-    <div class="facts" id="rfacts"></div>
-    <p class="note" id="pdrop"></p>
-
-    <h3 style="font-size:16px;margin:26px 0 2px">Where do the numbers come from?</h3>
-    <p class="note">Click each term in the ledger — every number is computed
-    live from the selected run's real artifacts (<code class="mono">fsm.json</code>,
-    <code class="mono">initial_model.json</code>, <code class="mono">refined_fsm.dot</code>).</p>
-    <div class="ledger" id="ledger" role="tablist"></div>
-    <div class="ledcard" id="ledcard"></div>
-
-    <h3 style="font-size:16px;margin:26px 0 2px">What <code class="mono">merge_pta</code> actually does, one trace at a time</h3>
-    <p class="note">Trace 0 of the 18, verbatim from ARCANE's
-    <code class="mono">sample_trace.json</code>: F1-Setup → Context Setup, 4 messages.</p>
-    <div class="tracebox">
-      <button id="traceGo">▶ replay trace 0</button>
-      <div class="tlane" id="tlane"></div>
-      <div class="tcap" id="tcap">Trace 0: <span class="mono">F1_SETUP_REQUEST · F1_SETUP_RESPONSE · UE_CONTEXT_SETUP_REQUEST · UE_CONTEXT_SETUP_RESPONSE</span></div>
-    </div>
-  </section>
-
-  <hr class="rule">
-
   <!-- ================ 3 FUNNEL ================ -->
   <section class="stage" id="s3">
     <div class="eyebrow"><span class="n">STAGE 3</span><span class="t">Test cases &amp; elimination</span></div>
@@ -532,6 +644,12 @@ abbr{cursor:help}
     seeded and logged (<code class="mono">seed 20260828</code>) — this is the answer to
     <em>"how do you eliminate test cases?"</em></p>
     <div class="fun" id="fun"></div>
+
+    <details style="margin:12px 0">
+      <summary>The <span class="enumns" id="n-cu07">2</span> CU07 case(s) that survive, message by message</summary>
+      <div id="cu07box" style="margin-top:12px"></div>
+    </details>
+
     <p class="note"><b>The seam worth knowing:</b> ARCANE's shipped run used <code class="mono">max_paths=10</code> —
     with that cap the DFS never reaches any response branch (their own 100 emitted cases contain
     zero). Raising the cap to 200 is what exposes the CU07 path. Framing B scored 0 here because
@@ -591,11 +709,16 @@ abbr{cursor:help}
       <thead><tr><th>what</th><th>where it bites</th></tr></thead>
       <tbody>
         <tr><td><b>The prompt is ours, not ARCANE's.</b> ARCANE's repo ships no LLM prompt. The
-        prompt shown in Stage 1 is our reconstruction, and the four framings (faithful protocol
+        prompt shown in Stage 2 is our reconstruction, and the four framings (faithful protocol
         modeler / security analyst / formal-methods engineer / the noob control) are personas <em>we</em> invented —
         ARCANE published none of them. Framing D's prompt was written
         <em>bad on purpose</em>, as a control: it is not a real user, it is a stress test of how much the prompt even matters.</td>
-        <td>Stage 1, "show the exact prompt"</td></tr>
+        <td>Stage 2, "show the exact prompt"</td></tr>
+        <tr><td><b>The "expert, by hand" half of Stage 1 is authored illustration.</b> No human
+        expert actually built a manual FSM for this campaign — Route 1 is our account of how a
+        careful hand-drawn model would go, written to be checkable against the Stage 0 spec
+        excerpts, but it is not a recorded artifact. Only Route 2's numbers are measured.</td>
+        <td>Stage 1, "route 1"</td></tr>
         <tr><td><b>The LLM and its sizes are ours.</b> We ran <span class="mono">glm-5.3-flash:cloud</span>,
         four times, and got four different seed models. ARCANE published one seed model; the
         4→41, 8→45, 6→44, 5→43 quadruples are our runs, measured on our harness — not ARCANE's published numbers.</td>
@@ -603,7 +726,7 @@ abbr{cursor:help}
         <tr><td><b>Pass 1 truncated; we patched the prompt.</b> GLM burned its 32&thinsp;768-token output
         on reasoning and returned cut-off JSON. Our fix — a compactness clause capping transitions and IEs —
         is our patch, not part of ARCANE's pipeline, and it biases the model before refinement even starts.</td>
-        <td>Stage 1 note, framing B/A 2nd-pass marks</td></tr>
+        <td>Stage 2 note, framing B/A 2nd-pass marks</td></tr>
         <tr><td><b>We re-implemented the harness around ARCANE's refiner.</b> Only
         <span class="mono">merge_pta</span> is ARCANE's untouched code. The seed conversion, path
         enumeration, mutation passes, funnel bookkeeping, encoding and execution harness are our
@@ -621,9 +744,10 @@ abbr{cursor:help}
         <tr><td><b>Most refined states are artifacts, not protocol truth.</b> Four separate
         F1_SETUP_RESPONSE states and seven <span class="mono">_variant</span> copies exist because
         <span class="mono">merge_pta</span> walks each trace independently and one threshold (0.7/0.95/0.9)
-        decides the shape. A human would draw one Response state. We present ARCANE's machine as-built,
+        decides the shape. A human would draw one Response state (Stage 1, route 1, does). We present
+        ARCANE's machine as-built,
         duplicates included — but nobody should read 41 as "the F1AP procedure has 41 milestones."</td>
-        <td>Stage 1 refinement section</td></tr>
+        <td>Stage 1, "how refinement did it"</td></tr>
         <tr><td><b>We filtered the campaign down to one bug.</b> The mutation pass produced 32 framed-A
         cases; we kept only the 2 unsolicited-Response ones and executed just 1 (case 31). Case 16 sits
         in the list as kept-but-never-run. This is a CU07 demo, not a reproduction of ARCANE's full
@@ -866,10 +990,10 @@ function renderFsmSvg(){
     cap += 'This framing drew <b>no self-loops</b> at all — no state keeps a message and stays put. ';
   }
   cap += parN
-    ? (loopN ? 'refinement later keeps one edge per (source, target) pair, which is part of the '
-             : 'Refinement later keeps one edge per (source, target) pair, which is part of the ')
+    ? (loopN ? 'refinement (Stage 1 above) keeps one edge per (source, target) pair, which is part of the '
+             : 'Refinement (Stage 1 above) keeps one edge per (source, target) pair, which is part of the ')
       + T.length+' &rarr; '+D.base.transitions+' collapse.'
-    : 'No two edges share a (source, target) pair, so there is nothing for the container to collapse: all '+T.length+' pass through to refinement.';
+    : 'No two edges share a (source, target) pair, so there is nothing for the container to collapse: all '+T.length+' pass through to refinement (Stage 1 above).';
   $('#fsm-cap').innerHTML = cap;
 }
 function renderSeedGraphs(){
@@ -1099,7 +1223,7 @@ function renderRefine(){
     'one surprising message can drag its whole tail of follow-ups into the machine as fresh states.</p>';
   h += '<p class="note"><b>Both numbers, the same way.</b> States: '+seedN+' seed (the LLM’s whole contribution) + '+addE+' added '+
     'by code = '+refN+'. Edges: '+rawE+' raw LLM transitions collapse to '+baseE+' after parallel copies are removed '+
-    '(see the drawing above). '
+    '(the raw copies are visible in the seed drawing in Stage 2 below). '
     + (edgeGrow===addE
       ? 'Every state the code adds arrives tied to exactly one edge — the message that created it — so edges grow by the same '+addE+': '+baseE+' + '+addE+' = '+refE+'.'
       : 'Every <em>carved</em> state arrives tied to exactly one edge, so edges grow by '+edgeGrow+' — one fewer than states, because the code also added a walk-start <span class="mono">IDLE</span> state carrying no in-edge: the seed machine had no IDLE to begin from.')
@@ -1137,8 +1261,8 @@ function renderRefine(){
   h += '<p class="note"><b>Why this matters for the bug.</b> Everything downstream — path enumeration, the drop mutation, '+
     'the CU07 cases — walks this refined machine, not the seed. The growth is the room the fuzzer operates in: without the '+
     addE+' traced states there would be no Response-carrying paths to mutate, and nothing for the delete-a-Request move to '+
-    'turn into an unsolicited F1-Setup-Response. No refinement, no CU07. Stage 2 below replays one real trace through this '+
-    'exact code, live.</p>';
+    'turn into an unsolicited F1-Setup-Response. No refinement, no CU07. The trace replay below runs one real trace '+
+    'through this exact code, live.</p>';
   $('#re-box').innerHTML = h;
 }
 
@@ -1165,7 +1289,7 @@ function renderEnum(){
   if (!E.cu07.length){
     box.innerHTML = '<p class="note">0 CU07-family cases for framing '+RUN+': the mutation pass produced '+
       E.n_paths+' cases, none an unsolicited F1-Setup-Response. (This framing modeled the attack '+
-      'differently — see the funnel in Stage 3.)</p>';
+      'differently — the funnel above shows why.)</p>';
   } else {
     const lastId = E.cu07[E.cu07.length-1].id;
     const two = E.cu07.length===2 && E.cu07.some(c=>c.seq.length===1) && E.cu07.some(c=>c.seq.length>1);
@@ -1215,9 +1339,7 @@ function renderAll(){
   facts.innerHTML = [
     [d.fsm.states.length,'states'],
     [d.fsm.transitions.length,'transitions'],
-    [d.base.states+'→'+d.refined.states,'refined states'],
-    [d.base.transitions+'→'+d.refined.transitions,'refined trans'],
-    [d.counts.cu07_family,'CU07 cases'],
+    [d.raw_chars.toLocaleString(),'raw chars'],
     [d.thinking_chars.toLocaleString(),'thinking chars*']
   ].map(([v,k])=>`<div class="fact"><div class="v num">${v}</div><div class="k">${k}</div></div>`).join('');
   renderEdges(); renderFunnel(); renderLedger(); renderEnum();
@@ -1276,8 +1398,8 @@ function ledDetail(which){
       even wrote one pseudo-transition ("time to wait" timer start) that is not a message at all. The pipeline
       carried all of that through as-is — you can see it in the seed drawing above.`
       : `Every edge carries its message type, <b>direction</b> (DU→CU vs CU→DU) and an IE-validity map —
-      this is raw model output, before anything in the pipeline touches it. The full edge table
-      (and the illegal edges some framings modeled) is in <b>Stage 1</b> above.`;
+      this is raw model output, before anything in the pipeline touches it. The seed drawings
+      (and the illegal edges some framings modeled) are in <b>Stage 2</b> below.`;
     card.innerHTML = `<b>① ${d.transitions.length} edges — what the LLM actually wrote.</b>
       Framing ${RUN} returned ${d.states.length} states and ${d.transitions.length} transitions in JSON.
       ${Dextra}`;
@@ -1392,10 +1514,8 @@ document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',
 }));
 
 // ---- run selector ----
-document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{ RUN = c.dataset.run; renderAll();
-
+document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{ RUN = c.dataset.run; renderAll(); }));
 $('#traceGo').addEventListener('click', playTrace);
- }));
 
 const WIRE = '40010040000004004e00020001005240100680674e422d45757265636f6d2d43550003001100000004000b4002f859000bc614e0000000aa000a80000000c74003110300';
 const groups = WIRE.match(/.{4}/g) || [];
