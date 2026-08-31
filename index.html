@@ -564,7 +564,7 @@ abbr{cursor:help}
           <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
           <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
         </svg><div class="fcap">after step 4 · machine closed — every unmatched arrival gets a red reject; the killer message now has a home</div></div>
-        <div class="eamy"><p>第 4 步：spec 说 abnormal conditions 不适用，等于承认没有任何救火措施。专家只能自己找规则把机器闭合——而实现怎么填这个空白，规范管不着：正确的 CU 应该 discard，我们的 CU 给了 139。</p></div>
+        <div class="eamy"><p>第 4 步：spec 说 abnormal conditions 不适用，等于承认没有任何救火措施。专家只能自己找规则把机器闭合但是实现怎么填这个空白，规范管不着，这就是可能会出bug的地方，因为每个开源软件开发者的意见不同。正确的 CU 应该 discard，我们的 CU 给了 139。</p></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>5 · dress every edge with guards</div>
