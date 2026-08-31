@@ -413,6 +413,11 @@ abbr{cursor:help}
     </details>
 
     <details style="margin:12px 0">
+      <summary>The same <span class="enumns" id="n-rstates-g">41</span> states, each as a graph — every edge that touches it</summary>
+      <div id="st-graphs"></div>
+    </details>
+
+    <details style="margin:12px 0">
       <summary>All <span class="enumns" id="n-redges">44</span> refined edges, one by one</summary>
       <div class="tw"><table id="redges">
         <thead><tr><th>#</th><th>From</th><th>Message</th><th>To</th></tr></thead><tbody></tbody>
@@ -755,6 +760,76 @@ function renderSeedGraphs(){
   }).join('');
 }
 
+function renderRefinedGraphs(){
+  const D = cur(), E = D.enum;
+  const seedSet = new Set(D.fsm.states);
+  const lab = {}; E.states.forEach(x=> lab[x.k]=x.l);
+  const W = 640, rowH = 58;
+  $('#st-graphs').innerHTML = E.states.map(function(s1, si){
+    const st = s1.k, sl = s1.l;
+    const others = {}, loops = [];
+    E.edges.forEach(function(e){
+      if (e.f===st && e.t===st){ loops.push(e.m); return; }
+      if (e.t===st) (others[e.f]=others[e.f]||[]).push(['in', e.m]);
+      if (e.f===st) (others[e.t]=others[e.t]||[]).push(['out', e.m]);
+    });
+    const nIn = E.edges.filter(e=>e.t===st).length;
+    const nOut = E.edges.filter(e=>e.f===st).length;
+    const names = Object.keys(others);
+    const h = Math.max(110, (names.length-1>0 ? (names.length-1)*rowH : 0) + 88);
+    const cy = h/2;
+    const fs = sl.length>20 ? 8.2 : 9.3;
+    const nbw = (n,f) => Math.max(64, n.length*f*0.94 + 18);
+    const lw = nbw(sl, fs);
+    const loopsW = loops.length ? 26 + 20*(loops.length-1) : 0;
+    const ccx = 20 + lw/2 + 10 + loopsW;
+    let g = '';
+    names.forEach(function(n, i){
+      const nl = lab[n] || n;
+      const onfs = nl.length>20 ? 8.2 : 9.3;
+      const onw = nbw(nl, onfs);
+      const y = cy + (i-(names.length-1)/2)*rowH;
+      const ox = W - 12 - onw/2;
+      const dirs = {};
+      others[n].forEach(p=>{ (dirs[p[0]]=dirs[p[0]]||{}); (dirs[p[0]][p[1]]=(dirs[p[0]][p[1]]||0)+1); });
+      const twoDir = dirs['in'] && dirs['out'];
+      [['out',1],['in',-1]].forEach(function(dd){
+        const dir = dd[0]; if (!dirs[dir]) return;
+        const yL = twoDir ? y - dd[1]*9 : y;
+        const x1 = dir==='out' ? ccx+lw/2 : ox-onw/2;
+        const x2 = dir==='out' ? ox-onw/2 : ccx+lw/2;
+        g += '<line x1="'+x1+'" y1="'+yL+'" x2="'+(x2-2)+'" y2="'+yL+'" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#arr-r'+si+')"/>';
+        const lbl = Object.keys(dirs[dir]).map(function(m){ const c=dirs[dir][m]; return esc(m)+(c>1?' x'+c:''); }).join(', ');
+        const lfs = lbl.length>30 ? 7.2 : 8.6;
+        g += '<text x="'+((x1+x2)/2)+'" y="'+(yL-5)+'" text-anchor="middle" font-size="'+lfs+'" class="svgmono" style="paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round">'+lbl+'</text>';
+      });
+      const isSeed = seedSet.has(n);
+      const isVar = /variant/.test(nl);
+      const nfill = isSeed ? '#e8f5ed' : (isVar ? '#fdf3e0' : '#fff');
+      const nstroke = isSeed ? 'var(--ok)' : (isVar ? 'var(--warn, #c9a54a)' : 'var(--hair)');
+      g += '<rect x="'+(ox-onw/2)+'" y="'+(y-16)+'" width="'+onw+'" height="32" rx="3" fill="'+nfill+'" stroke="'+nstroke+'"/>'+
+           '<text x="'+ox+'" y="'+(y+3.2)+'" text-anchor="middle" font-size="'+onfs+'" class="svgmono svgnodetext">'+esc(nl)+'</text>';
+    });
+    if (loops.length){
+      const y0 = cy - 15;
+      for (let i=0;i<loops.length;i++)
+        g += '<circle cx="'+(ccx - lw/2 - 15 - i*20)+'" cy="'+y0+'" r="9" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.3" marker-end="url(#arr-r'+si+')"/>';
+      const cnt = {}; loops.forEach(m=> cnt[m]=(cnt[m]||0)+1);
+      const lbl = Object.keys(cnt).map(m=>esc(m)+(cnt[m]>1?' x'+cnt[m]:'')).join(', ');
+      g += '<text x="'+(ccx - lw/2 - 15 - (loops.length-1)*20)+'" y="'+(y0+25)+'" text-anchor="middle" font-size="8.6" class="svgmono">'+lbl+'</text>';
+    }
+    const sl2 = esc(sl);
+    g += '<rect x="'+(ccx-lw/2)+'" y="'+(cy-16)+'" width="'+lw+'" height="32" rx="3" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.5"/>'+
+         '<text x="'+ccx+'" y="'+(cy+3.4)+'" text-anchor="middle" font-size="'+fs+'" class="svgmono svgnodetext" style="font-weight:600">'+sl2+'</text>';
+    const isVar = /variant/.test(sl);
+    return '<div class="sgcard"><div class="sghead"><span class="sgname"><span class="sgi">'+esc(st)+'</span>'+sl2+'</span>'+
+      '<span class="sgdesc">'+nIn+' in · '+nOut+' out'+(seedSet.has(st)?' · seed state':'')+(isVar?' · grew as a _variant (traces disagreed)':'')+'</span></div>'+
+      '<svg viewBox="0 0 '+W+' '+h+'" role="img" aria-label="'+sl2+' refined state graph">'+
+      '<defs><marker id="arr-r'+si+'" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">'+
+      '<path d="M0,0 L8,4 L0,8 z" fill="var(--etsi)"/></marker></defs>'+g+'</svg></div>';
+  }).join('');
+}
+
 function renderEnum(){
   const D = cur(), E = D.enum;
   $('#enum-run').textContent = RUN;
@@ -762,6 +837,8 @@ function renderEnum(){
   $('#seed-e').textContent = D.fsm.transitions.length;
   renderFsmSvg();
   renderSeedGraphs();
+  $('#n-rstates-g').textContent = E.states.length;
+  renderRefinedGraphs();
   $('#n-rstates').textContent = E.states.length;
   $('#n-redges').textContent = E.edges.length;
   $('#n-cu07').textContent = E.cu07.length;
