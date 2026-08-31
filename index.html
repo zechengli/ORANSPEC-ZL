@@ -438,7 +438,7 @@ abbr{cursor:help}
     <details style="margin:12px 0">
       <summary>All <span class="enumns" id="n-rstates">41</span> refined states, one by one</summary>
       <div class="stchips" id="st-chips"></div>
-      <div class="fsvgcap">Click any state chip (or any mini graph below) to open that state's entire graph.</div>
+      <div class="fsvgcap">Click any state chip to open that state's entire graph.</div>
     </details>
 
     <div id="sgmodal" hidden>
@@ -452,11 +452,6 @@ abbr{cursor:help}
         <div id="sgmodal-body"></div>
       </div>
     </div>
-
-    <details style="margin:12px 0">
-      <summary>The same <span class="enumns" id="n-rstates-g">41</span> states, each as a graph — every edge that touches it</summary>
-      <div id="st-graphs"></div>
-    </details>
 
     <details style="margin:12px 0">
       <summary>All <span class="enumns" id="n-redges">44</span> refined edges, one by one</summary>
@@ -870,19 +865,6 @@ function buildStateGraph(st, big){
     '<path d="M0,0 L8,4 L0,8 z" fill="var(--etsi)"/></marker></defs>'+g+'</svg>',
     nIn: nIn, nOut: nOut};
 }
-function renderRefinedGraphs(){
-  const D = cur(), E = D.enum;
-  const seedSet = new Set(D.fsm.states);
-  $('#st-graphs').innerHTML = E.states.map(function(s1){
-    const b = buildStateGraph(s1.k, false);
-    const isVar = /variant/.test(s1.l);
-    const titleTxt = s1.k===s1.l ? esc(s1.l) : '<span class="sgi">'+esc(s1.k)+'</span>'+esc(s1.l);
-    return '<div class="sgcard stopen" data-state="'+esc(s1.k)+'">'+
-      '<div class="sghead"><span class="sgname">'+titleTxt+'</span>'+
-      '<span class="sgdesc">'+b.nIn+' in · '+b.nOut+' out'+(seedSet.has(s1.k)?' · seed state':'')+(isVar?' · grew as a _variant (traces disagreed)':'')+
-      ' · <i style="color:var(--etsi)">click to enlarge</i></span></div>'+ b.svg + '</div>';
-  }).join('');
-}
 document.addEventListener('click', function(ev){
   const el = ev.target.closest ? ev.target.closest('[data-state]') : null;
   if (el) openStateModal(el.getAttribute('data-state'));
@@ -892,7 +874,7 @@ function openStateModal(st){
   const s1 = E.states.find(x=>x.k===st); if (!s1) return;
   const b = buildStateGraph(st, true);
   const isVar = /variant/.test(s1.l);
-  $('#sgmodal-title').innerHTML = '<span class="sgi">'+esc(st)+'</span>'+esc(s1.l);
+  $('#sgmodal-title').innerHTML = st===s1.l ? esc(s1.l) : '<span class="sgi">'+esc(st)+'</span>'+esc(s1.l);
   $('#sgmodal-sub').textContent = b.nIn+' in · '+b.nOut+' out'+
     (new Set(D.fsm.states).has(st)?' · seed state':'')+(isVar?' · _variant (traces disagreed)':'');
   $('#sgmodal-body').innerHTML = b.svg;
@@ -916,8 +898,6 @@ function renderEnum(){
   $('#seed-e').textContent = D.fsm.transitions.length;
   renderFsmSvg();
   renderSeedGraphs();
-  $('#n-rstates-g').textContent = E.states.length;
-  renderRefinedGraphs();
   $('#n-rstates').textContent = E.states.length;
   $('#n-redges').textContent = E.edges.length;
   $('#n-cu07').textContent = E.cu07.length;
