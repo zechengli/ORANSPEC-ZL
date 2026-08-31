@@ -492,10 +492,12 @@ abbr{cursor:help}
   <section class="stage" id="s2">
     <div class="eyebrow"><span class="n">STAGE 2</span><span class="t">Model ↔ reality</span></div>
     <h2>Refinement with ARCANE's own algorithm</h2>
-    <p class="lede">The LLM model is merged, trace by trace, with <b>18 real CU↔DU sessions</b>
-    using <code class="mono">ARCANEModelRefiner.merge_pta</code> — ARCANE's own code, unmodified
-    (similarity 0.6·procedure + 0.4·weighted-IE, threshold 0.7). Score &gt; 0.7 merges into an edge;
-    otherwise the model grows a new state.</p>
+    <p class="lede">The LLM's job ended at the seed JSON (Stage 1). From here on there is
+    <b>no model in the loop</b>: ordinary deterministic Python — <code class="mono">ARCANEModelRefiner.merge_pta</code>,
+    ARCANE's own code, unmodified — merges <b>18 real CU↔DU sessions</b> into it, one message at a time
+    (similarity 0.6·procedure + 0.4·weighted-IE). Score ≤ 0.7 grows a new state; 0.7–0.95 with
+    disagreeing IEs grows a <span class="mono">_variant</span>; above that the message merges into an
+    existing edge and nothing grows. Same seed + same traces → the same machine, every run.</p>
     <div class="facts" id="rfacts"></div>
     <p class="note" id="pdrop"></p>
 
@@ -570,6 +572,69 @@ abbr{cursor:help}
     <p class="replay-note">This terminal replays the actual session log from 2026-08-28.
     A browser page cannot open SCTP or crash a real CU — the live execution ran on the host
     machine (<code class="mono">fuzz_run.py</code>), and every line above is from that run.</p>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ================ 6 FULL DISCLOSURE ================ -->
+  <section class="stage" id="s6" style="padding-bottom:30px">
+    <div class="eyebrow"><span class="n">FULL DISCLOSURE</span><span class="t">Where we did wrong</span></div>
+    <h2>What this reproduction got wrong, guessed, or changed</h2>
+    <p class="lede">Every number on this page is real and computed from artifacts — but the
+    <em>pipeline around those numbers</em> contains our own choices, deviations and known defects.
+    Nothing below is hidden elsewhere on the page; this is the single list.</p>
+    <div class="tw"><table>
+      <thead><tr><th>what</th><th>where it bites</th></tr></thead>
+      <tbody>
+        <tr><td><b>The prompt is ours, not ARCANE's.</b> ARCANE's repo ships no LLM prompt. The
+        prompt shown in Stage 1 is our reconstruction, and the three framings (faithful protocol
+        modeler / security analyst / formal-methods engineer) are personas <em>we</em> invented —
+        ARCANE published none of them.</td>
+        <td>Stage 1, "show the exact prompt"</td></tr>
+        <tr><td><b>The LLM and its sizes are ours.</b> We ran <span class="mono">glm-5.3-flash:cloud</span>,
+        three times, and got three different seed models. ARCANE published one seed model; the
+        4→41, 8→45, 6→44 triples are our runs, measured on our harness — not ARCANE's published numbers.</td>
+        <td>every framing switch</td></tr>
+        <tr><td><b>Pass 1 truncated; we patched the prompt.</b> GLM burned its 32&thinsp;768-token output
+        on reasoning and returned cut-off JSON. Our fix — a compactness clause capping transitions and IEs —
+        is our patch, not part of ARCANE's pipeline, and it biases the model before refinement even starts.</td>
+        <td>Stage 1 note, framing B/A 2nd-pass marks</td></tr>
+        <tr><td><b>We re-implemented the harness around ARCANE's refiner.</b> Only
+        <span class="mono">merge_pta</span> is ARCANE's untouched code. The seed conversion, path
+        enumeration, mutation passes, funnel bookkeeping, encoding and execution harness are our
+        rebuild — a faithful-in-spirit copy, checked against ARCANE where artifacts existed, but not
+        their code. Bugs in it are ours.</td>
+        <td>Stages 3–5</td></tr>
+        <tr><td><b>We raised <span class="mono">max_paths</span> 10 → 200.</b> ARCANE's shipped cap
+        never reaches any response branch. Without this deliberate deviation the CU07 path does not
+        exist in framings A and C, and the whole demo would stop at Stage 3 with zero cases.</td>
+        <td>Stage 3, "the seam worth knowing"</td></tr>
+        <tr><td><b>ARCANE's container silently drops parallel edges, and we inherit it.</b>
+        The model format allows one transition per (source, target), so 4 of framing A's 11 LLM edges
+        (6 of C's 13) vanished at conversion — a real fidelity loss we did not fix, only logged.</td>
+        <td>the 11→7 collapse, ledger "parallel dropped"</td></tr>
+        <tr><td><b>Most refined states are artifacts, not protocol truth.</b> Four separate
+        F1_SETUP_RESPONSE states and seven <span class="mono">_variant</span> copies exist because
+        <span class="mono">merge_pta</span> walks each trace independently and one threshold (0.7/0.95/0.9)
+        decides the shape. A human would draw one Response state. We present ARCANE's machine as-built,
+        duplicates included — but nobody should read 41 as "the F1AP procedure has 41 milestones."</td>
+        <td>Stage 1 refinement section</td></tr>
+        <tr><td><b>We filtered the campaign down to one bug.</b> The mutation pass produced 32 framed-A
+        cases; we kept only the 2 unsolicited-Response ones and executed just 1 (case 31). Case 16 sits
+        in the list as kept-but-never-run. This is a CU07 demo, not a reproduction of ARCANE's full
+        multi-bug campaign.</td>
+        <td>Stage 3 funnel, Stage 5</td></tr>
+        <tr><td><b>The crash ran under emulation on one image.</b> The recorded SIGSEGV came from
+        ARCANE's <span class="mono">sdran/sdran-mobicom:v1</span> OAI CU under Intel SDE (the host CPU
+        lacks AVX-512), once, on 2026-08-28. We did not reproduce it natively, across builds, or across
+        runs — one emulated kill is our evidence.</td>
+        <td>Stage 5</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note"><b>What we deliberately did <em>not</em> do:</b> fix ARCANE's direction-less seed format,
+    deduplicate the refiner's artifact states, re-encode the dropped parallel edges, or expand the
+    demo beyond the single bug CU07 needed. The point was to measure the pipeline as it actually is —
+    walls and all — and put every deviation from ARCANE's shipped behavior on this one list.</p>
   </section>
 
 </main>
@@ -911,36 +976,48 @@ function renderRefine(){
     else cls.fresh++;
   });
   const refE = E.edges.length;
-  $('#re-sum').textContent = seedN+'→'+refN+' states, '+rawE+'→'+refE+' edges — the merge rules';
+  $('#re-sum').textContent = 'the LLM’s '+seedN+', then ordinary code for the other '+addE+' — in order';
   let h = '';
-  h += '<p class="note" style="margin-top:10px"><b>Where the extra '+addE+' states come from.</b> '+
-    'The seed machine only knows what the LLM chose to write down from the spec — '+seedN+' milestones. ARCANE’s '+
-    'refiner (<span class="mono">merge\_pta</span>) then replays the captured traces, one message at a time, each walk starting over '+
-    'from the initial state. At every step it compares the arriving message with <em>every</em> outgoing edge of the state it is '+
-    'standing on, using one score — <span class="mono">0.6·(same message type? 1 : same family? 0.5 : 0) + '+
-    '0.4·(weighted IE agreement)</span> — and makes a three-way decision:</p>';
-  h += '<div class="tw"><table><thead><tr><th>score</th><th>what the refiner does</th><th>this framing</th></tr></thead><tbody>'+
+  h += '<p class="note" style="margin-top:10px"><b>The order matters, so here it is as the pipeline runs it.</b> '+
+    'Nothing on this page interleaves the LLM with the growth. The LLM runs first, produces one JSON file, and is done. '+
+    'Everything after that is deterministic code with no model in the loop:</p>';
+  h += '<div class="custep"><span class="csi">1</span><span class="csm" style="flex:none;min-width:120px">the prompt → the LLM</span><span class="csie">'+
+    'We wrote the prompt; the LLM (<span class="mono">glm-5.3-flash:cloud</span>) read only the spec text and returned the '+
+    'seed JSON: <b>'+seedN+' states, '+rawE+' transitions</b>. <b>Its job ends at this file.</b> It never sees a captured trace, '+
+    'never knows a refiner exists, and adds nothing more to this page. Every state below the line marked 2 was '+
+    '<em>not</em> written by the LLM.</span></div>';
+  h += '<div class="custep"><span class="csi">2</span><span class="csm" style="flex:none;min-width:120px">the file → <span class="mono">merge\_pta</span></span><span class="csie">'+
+    'ARCANE’s own <span class="mono">ARCANEModelRefiner.merge\_pta</span> (<span class="mono">arcane\_refiner.py</span>, unmodified, '+
+    'called with threshold 0.7, weighting α = 0.6) takes the seed JSON and replays the <b>18 captured CU↔DU sessions</b>, one '+
+    'message at a time, each walk starting from the initial state. It is ordinary deterministic Python: same seed + same traces '+
+    '→ the same refined machine every single run. No sampling, no randomness, no second LLM pass. At every step it compares '+
+    'the arriving message with <em>every</em> outgoing edge of the state it is standing on, using one score — '+
+    '<span class="mono">0.6·(same message type? 1 : same family? 0.5 : 0) + 0.4·(weighted IE agreement)</span> — and decides:</span></div>';
+  h += '<div class="tw"><table><thead><tr><th>score</th><th>what the code does</th><th>this framing</th></tr></thead><tbody>'+
     '<tr><td class="mono">≤ 0.70</td><td><b>Carves a new state.</b> No outgoing edge looks like this message, so a brand-new '+
     'state is created, labeled with the message type, plus the one edge that reaches it. This is how '+
     'F1\_SETUP\_RESPONSE, UE\_CONTEXT\_\*, RESET and friends entered the machine — procedures the LLM never drew.</td>'+
     '<td class="mono" style="white-space:nowrap">'+freshSt+' of '+addE+' carved states</td></tr>'+
     '<tr><td class="mono">0.70 – 0.95</td><td><b>Carves a <span class="mono">\_variant</span> state.</b> The message <em>type</em> matches '+
-    'an outgoing edge, but its IEs disagree enough (content similarity &lt; 0.9): same message, different content — it gets '+
-    'its own copy of the state, suffixed <span class="mono">\_variant</span>.</td>'+
+    'an outgoing edge, but its IEs disagree enough (content similarity &lt; 0.9): same message, different content — the code '+
+    'gives it its own copy of the state, suffixed <span class="mono">\_variant</span>.</td>'+
     '<td class="mono" style="white-space:nowrap">'+varSt+' of '+addE+'</td></tr>'+
     '<tr><td class="mono">&gt; 0.95</td><td><b>Merges, no growth.</b> The trace message is absorbed into the existing edge '+
     '(IEs it knew are kept, new ones copied in) and the walk continues to that edge’s target. This is what kept the machine’s seed spine alive.</td>'+
     '<td class="mono" style="white-space:nowrap">0 added</td></tr>'+
     '</tbody></table></div>';
+  h += '<div class="custep"><span class="csi">3</span><span class="csm" style="flex:none;min-width:120px">refined machine → fuzz stages</span><span class="csie">'+
+    'Only after code step 2 finishes ('+seedN+' → '+refN+' states) do the fuzzer’s stages run — path enumeration, mutations, '+
+    'encoding (Stage 3 and 4) — on the refined machine, never on the LLM’s raw output.</span></div>';
   h += '<p class="note"><b>The ripple rule — why whole suffixes get copied.</b> A carved state has no outgoing edges yet, and '+
     'the walk <em>moves onto it</em>. So the trace’s next message has nothing to compare against and is forced to carve again — '+
     'one surprising message can drag its whole tail of follow-ups into the machine as fresh states.</p>';
-  h += '<p class="note"><b>Both numbers, the same way.</b> States: '+seedN+' seed + '+addE+' carved out of traces = '+refN+'. '+
-    'Edges: '+rawE+' raw LLM transitions collapse to '+baseE+' after parallel copies are removed (see the drawing above), and every '+
-    'carved state arrives tied to exactly one edge — the message that created it — so edges grow by the same '+addE+': '+
-    baseE+' + '+addE+' = '+refE+'. The new edges end on <b>'+cls.fresh+'</b> brand-new message states, <b>'+cls.variant+
-    '</b> <span class="mono">\_variant</span> copies, and <b>'+cls.seed+'</b> original seed states.</p>';
-  // one state, watched closely: the seed state refinement grew the most
+  h += '<p class="note"><b>Both numbers, the same way.</b> States: '+seedN+' seed (the LLM’s whole contribution) + '+addE+' carved '+
+    'out of traces by code = '+refN+'. Edges: '+rawE+' raw LLM transitions collapse to '+baseE+' after parallel copies are removed '+
+    '(see the drawing above), and every carved state arrives tied to exactly one edge — the message that created it — so edges grow '+
+    'by the same '+addE+': '+baseE+' + '+addE+' = '+refE+'. The new edges end on <b>'+cls.fresh+'</b> brand-new message states, '+
+    '<b>'+cls.variant+'</b> <span class="mono">\_variant</span> copies, and <b>'+cls.seed+'</b> original seed states.</p>';
+  // one state, watched closely: the seed state the code grew the most
   let best = null, bestN = -1;
   E.edges.forEach(function(e){
     if (!seedSet.has(e.f)) return;
@@ -950,7 +1027,7 @@ function renderRefine(){
   if (best){
     const seedOut = new Set(D.fsm.transitions.filter(t=>t.from===best).map(t=>t.to)).size;
     h += '<p class="note" style="margin-top:14px"><b>One state, watched closely: '+esc(best)+'.</b> '+
-      'Left the seed with '+seedOut+' outgoing edge'+(seedOut===1?'':'s')+'; after refinement it walks out '+
+      'The LLM left it with '+seedOut+' outgoing edge'+(seedOut===1?'':'s')+'; after the code ran, it walks out '+
       E.edges.filter(e=>e.f===best).length+' ways — every arrow, and why it exists:</p>';
     h += '<div class="tw"><table><thead><tr><th>to state</th><th>message</th><th>why this edge exists</th></tr></thead><tbody>'+
       E.edges.filter(e=>e.f===best).map(function(e){
@@ -963,10 +1040,16 @@ function renderRefine(){
           '</td><td class="mono"><b>'+esc(e.m)+'</b></td><td>'+why+'</td></tr>';
       }).join('')+'</tbody></table></div>';
   }
+  h += '<p class="note"><b>Where this is honest, where it is an artifact.</b> The growth is real, deterministic ARCANE behavior — '+
+    'but the '+addE+' states are not '+addE+' real protocol milestones. The four separate F1\_SETUP\_RESPONSE states, for instance, '+
+    'exist only because the code walks each trace independently; a human engineer would draw one. We show the machine exactly as '+
+    'ARCANE’s algorithm builds it, artifacts included, because those artifacts are what the fuzzer then walks — the honest ledger '+
+    'of them is at the bottom of this page.</p>';
   h += '<p class="note"><b>Why this matters for the bug.</b> Everything downstream — path enumeration, the drop mutation, '+
     'the CU07 cases — walks this refined machine, not the seed. The growth is the room the fuzzer operates in: without the '+
     addE+' traced states there would be no Response-carrying paths to mutate, and nothing for the delete-a-Request move to '+
-    'turn into an unsolicited F1-Setup-Response. No refinement, no CU07.</p>';
+    'turn into an unsolicited F1-Setup-Response. No refinement, no CU07. Stage 2 below replays one real trace through this '+
+    'exact code, live.</p>';
   $('#re-box').innerHTML = h;
 }
 
