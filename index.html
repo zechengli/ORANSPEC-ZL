@@ -131,6 +131,9 @@ details>div, details>.tw{margin:0}
 .sgcard{border-top:1px dashed var(--hair);padding:12px 8px 4px}
 #seedgraphs .sgcard:first-child{border-top:none;padding-top:4px}
 .sghead{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;padding:0 6px 6px}
+#seedgraphs .sghead{cursor:pointer;user-select:none}
+#seedgraphs .sghead:hover .sgname{color:var(--etsi)}
+#seedgraphs .sghead .sgmark{color:var(--etsi);font-size:11px;width:14px;display:inline-block}
 .sgname{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap}
 .sgname .sgi{color:var(--etsi);margin-right:6px;font-weight:500}
 .sgdesc{font-size:11.5px;color:var(--ink2)}
@@ -264,9 +267,6 @@ abbr{cursor:help}
 .tracebox button{font-family:var(--mono);font-size:12px;background:var(--etsi);color:#fff;
   border:none;padding:7px 16px;cursor:pointer}
 .tracebox button:hover{filter:brightness(1.12)}
-.sgtog{font-family:var(--mono);font-size:12px;background:var(--etsi);color:#fff;border:none;
-  border-radius:6px;padding:6px 12px;cursor:pointer;margin:2px 0 8px}
-.sgtog:hover{filter:brightness(1.12)}
 .tracebox button:disabled{background:var(--hair);color:var(--ink2);cursor:wait}
 .tlane{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:64px;margin:16px 0 10px}
 .tnode{border:1px solid var(--etsi);background:var(--etsi-soft);color:var(--etsi);
@@ -1352,9 +1352,8 @@ function renderSeedGraphs(){
   const S = cur().fsm.states;
   $('#seedgraphs').innerHTML = S.map(function(st, si){
     const desc = SEEDDESC[st] || 'seed state of this framing';
-    return '<div class="sgcard"><div class="sghead"><span class="sgname"><span class="sgi">'+(si+1)+'</span>'+esc(st)+'</span>'+
+    return '<div class="sgcard"><div class="sghead sgtog" data-i="'+si+'"><span class="sgname"><span class="sgmark">▶</span><span class="sgi">'+(si+1)+'</span>'+esc(st)+'</span>'+
       '<span class="sgdesc">'+esc(desc)+'</span></div>'+
-      '<button type="button" class="sgtog" data-i="'+si+'">▶ show this state graph</button>'+
       '<div class="sgbody" data-i="'+si+'" hidden></div></div>';
   }).join('');
 }
@@ -1364,7 +1363,7 @@ $('#seedgraphs').addEventListener('click', function(ev){
   const body = this.querySelector('.sgbody[data-i="'+b.dataset.i+'"]');
   if (!body.innerHTML) body.innerHTML = seedGraphSvg(+b.dataset.i);
   body.hidden = !body.hidden;
-  b.textContent = body.hidden ? '▶ show this state graph' : '▼ hide this state graph';
+  b.querySelector('.sgmark').textContent = body.hidden ? '▶' : '▼';
 });
 
 function buildStateGraph(st, big){
