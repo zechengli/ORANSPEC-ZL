@@ -307,8 +307,18 @@ abbr{cursor:help}
 .pnavhead{display:none}
 
 /* ---------- expert conversion: 3-column rows with per-step FSM sketches ---------- */
-.eabox.conv .earow{grid-template-columns:200px minmax(0,1fr) 296px}
+.eabox.conv .ehead{display:grid;grid-template-columns:190px minmax(0,1fr) 262px 240px;
+  border-bottom:1px solid var(--hair);background:var(--paper2)}
+.eabox.conv .ehead div{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;
+  color:var(--ink2);padding:8px 14px}
+.eabox.conv .earow{grid-template-columns:190px minmax(0,1fr) 262px 240px}
 .eabox.conv .ealab{font-size:10.5px}
+.eamy{border-left:1px solid var(--hair);background:#fff;padding:14px 16px;
+  font-size:13.5px;line-height:1.8;color:var(--ink)}
+.eamy .myhint{margin:0;color:var(--ink2);opacity:.55;font-size:12px}
+.eamy p{margin:0 0 10px}
+.eamy p:last-child{margin-bottom:0}
+.eamy b{color:var(--ink)}
 .eafsm{border-left:1px solid var(--hair);background:var(--paper2);padding:12px 14px}
 .eafsm svg{display:block;width:100%;max-width:268px;height:auto;margin:0 auto}
 .eafsm svg text{font-family:var(--mono)}
@@ -319,8 +329,10 @@ abbr{cursor:help}
 .eafsm .fcap{font-family:var(--mono);font-size:10px;line-height:1.55;color:var(--ink2);margin-top:8px}
 @media(max-width:1120px){
   .eabox.conv .earow{grid-template-columns:1fr}
+  .eabox.conv .ehead{display:none}
   .eabox.conv .ealab{border-right:none;border-bottom:1px dashed var(--hair)}
   .eafsm{border-left:none;border-top:1px dashed var(--hair)}
+  .eamy{border-left:none;border-top:1px dashed var(--hair)}
 }
 
 /* rail mode: the navigator sits open in the empty right margin on wide screens */
@@ -451,6 +463,7 @@ abbr{cursor:help}
         <marker id="mne" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="var(--etsi)"/></marker>
         <marker id="mnf" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="var(--fault)"/></marker>
       </defs></svg>
+      <div class="ehead"><div>the step</div><div>the reading</div><div>the machine</div><div>我的解读</div></div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>1 · open the ASN.1 first</div>
         <div class="eatxt">The ASN.1 is the type system the CU was compiled
@@ -466,6 +479,7 @@ abbr{cursor:help}
           <g><rect x="65" y="60" width="150" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="140" y="74" text-anchor="middle" font-size="8.5" class="st">F1SetupResponse · CU→DU</text></g>
           <g><rect x="65" y="90" width="150" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="140" y="104" text-anchor="middle" font-size="8.5" class="st">F1SetupFailure · CU→DU</text></g>
         </svg><div class="fcap">after step 1 · no states yet — three message types, direction already law</div></div>
+        <div class="eamy"><p class="myhint">（第 1 步的解读，待写）</p></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>2 · find the trigger — it names the initial state</div>
@@ -482,6 +496,7 @@ abbr{cursor:help}
           <g><rect x="6" y="40" width="48" height="22" rx="3" fill="var(--etsi-soft)" stroke="var(--etsi)" stroke-width="1.2"/><text x="30" y="54" text-anchor="middle" font-size="9" class="st">IDLE</text></g>
           <g><rect x="90" y="40" width="96" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="138" y="54" text-anchor="middle" font-size="9" class="st">SETUP_REQUESTED</text></g>
         </svg><div class="fcap">after step 2 · 2 states · 1 edge — the trigger names them</div></div>
+        <div class="eamy"><p class="myhint">（第 2 步的解读，待写）</p></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>3 · two outcome slots → two destinies</div>
@@ -512,6 +527,7 @@ abbr{cursor:help}
           <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
           <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
         </svg><div class="fcap">after step 3 · 5 states · 6 edges — outcomes decided, backoff rides on the Time&nbsp;To&nbsp;Wait IE</div></div>
+        <div class="eamy"><p class="myhint">（第 3 步的解读，待写）</p></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>4 · ask of every state: what can arrive that I haven't drawn?</div>
@@ -548,6 +564,7 @@ abbr{cursor:help}
           <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
           <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
         </svg><div class="fcap">after step 4 · machine closed — every unmatched arrival gets a red reject; the killer message now has a home</div></div>
+        <div class="eamy"><p class="myhint">（第 4 步的解读，待写）</p></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>5 · dress every edge with guards</div>
@@ -582,6 +599,7 @@ abbr{cursor:help}
           <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
           <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
         </svg><div class="fcap">after step 5 · guards on every edge — direction, transaction match, IE presence; Time&nbsp;To&nbsp;Wait stays a timer, never a message</div></div>
+        <div class="eamy"><p class="myhint">（第 5 步的解读，待写）</p></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot bl"></i>6 · keep the machine honest: one procedure, IEs are data</div>
@@ -615,6 +633,7 @@ abbr{cursor:help}
           <g><rect x="170" y="110" width="56" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="198" y="124" text-anchor="middle" font-size="9" class="st">FAILED</text></g>
           <g><rect x="20" y="110" width="74" height="22" rx="3" fill="#fff" stroke="var(--etsi)" stroke-width="1.2"/><text x="57" y="124" text-anchor="middle" font-size="9" class="st">TIME_WAIT</text></g>
         </svg><div class="fcap">after step 6 · <b>5 states · 8 edges</b> — the finished machine, full size just below</div></div>
+        <div class="eamy"><p class="myhint">（第 6 步的解读，待写）</p></div>
       </div>
       <div class="earow">
         <div class="ealab"><i class="dot okd"></i>what the expert is left holding</div>
