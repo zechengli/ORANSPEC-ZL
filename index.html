@@ -391,11 +391,6 @@ abbr{cursor:help}
 
     <div class="facts" id="facts"></div>
 
-    <div class="tw"><table id="edges">
-      <thead><tr><th>From</th><th>Message</th><th>To</th><th>Direction (LLM-preserved)</th></tr></thead>
-      <tbody></tbody>
-    </table></div>
-
     <div id="illegal-wrap"></div>
 
     <h3 style="font-size:16px;margin:26px 0 2px">Enumerate every number — framing <span id="enum-run">A</span>, nothing hidden</h3>
@@ -603,11 +598,6 @@ function dirOf(t){
 
 function renderEdges(){
   const D = cur();
-  const tb = $('#edges tbody');
-  const rows = D.show.slice(0,9).map(t=>`<tr>
-    <td class="mono">${esc(t.from)}</td><td class="mono">${esc(t.MessageType)}</td>
-    <td class="mono">${esc(t.to)}</td><td>${dirOf(t)}</td></tr>`).join('');
-  tb.innerHTML = rows;
   const iw = $('#illegal-wrap');
   iw.innerHTML = D.illegal.length ? `
     <h3 style="font-size:16px;margin:20px 0 4px">Modeled illegal edges <span style="color:var(--ink2);font-weight:400;font-size:13px">(framing ${RUN} only)</span></h3>
