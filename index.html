@@ -780,6 +780,68 @@ abbr{cursor:help}
       every transition that touches it — arrows in, arrows out, self-loops as circles on the left
       (one circle per raw copy the LLM wrote; see the legend in the drawing above).</div>
     </div>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">The three prompts side by side — how much of the developer's idea each one carries</h3>
+    <p class="note">All three were sent to the same model with the same spec feed appended, and they are
+    nearly the same length (873 / 961 / 900 characters). This table asks a different question from the
+    Conclusion's scoreboard: not <em>which seed performed best</em>, but <em>which instruction fully
+    conveys the developer's idea</em> — everything the model needs to produce what the developer
+    actually wanted, with nothing left to guess. <span style="color:var(--ok);font-weight:600">Green</span>
+    = the idea is stated outright; <span style="color:var(--fault);font-weight:600">red</span> = the
+    prompt leaves the model to guess, or states a different idea instead.</p>
+    <div class="tw"><table>
+      <thead><tr><th>what the developer needs conveyed</th><th>A — faithful modeler</th><th>B — formal-methods engineer</th><th>C — the noob</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>who the model is</b> (persona)</td>
+          <td style="color:var(--ok)"><b>"You are a protocol engineer building a conformance-test model of 3GPP F1AP"</b> — role and its product in one clause.</td>
+          <td>"You are a formal-methods engineer converting a 3GPP specification" — a coherent role, coherently stated.</td>
+          <td style="color:var(--fault)">None — "i need one of those state machine things". The model must infer the role from the request.</td>
+        </tr>
+        <tr>
+          <td><b>what to build</b></td>
+          <td style="color:var(--ok)">"convert the F1 Setup procedure into a finite state machine" — the artifact, named exactly.</td>
+          <td>"…into a strict finite state machine" — the same artifact, plus an adjective that buys nothing downstream.</td>
+          <td style="color:var(--fault)">"one of those state machine things" — the artifact only half-named.</td>
+        </tr>
+        <tr>
+          <td><b>what it's for</b> (the downstream consumer)</td>
+          <td style="color:var(--ok)"><b>"for conformance testing"</b> — the purpose that makes every later choice meaningful.</td>
+          <td style="color:var(--fault)">Never stated — rigor demanded for its own sake.</td>
+          <td>"this is for a fuzzer my friend is building" — ironically the campaign's true purpose, but hedged and drowned.</td>
+        </tr>
+        <tr>
+          <td><b>the core vocabulary</b> (IE validity, the thing the pipeline reads)</td>
+          <td style="color:var(--ok)"><b>"tag each message's Information Elements with validity ('valid' / 'invalid' / 'missing') from the message-definition tables"</b> — the exact vocabulary the mutation pass will flip.</td>
+          <td>"be pedantic about (1) message DIRECTION, (2) IE PRESENCE, (3) the precondition state" — precise demands, but for fields no pipeline code ever reads.</td>
+          <td style="color:var(--fault)">Absent — no IE mentioned anywhere; the model was free to skip them, and it did (0 of 7 edges carry IE lists).</td>
+        </tr>
+        <tr>
+          <td><b>the output contract</b></td>
+          <td style="color:var(--ok)">Mandatory: exact JSON schema, "no prose outside the JSON".</td>
+          <td style="color:var(--ok)">The same mandatory contract, word for word.</td>
+          <td style="color:var(--fault)">"i <em>think</em> the format is something like … that should be enough right?" — a guess offered where a contract is needed.</td>
+        </tr>
+        <tr>
+          <td><b>scope</b></td>
+          <td style="color:var(--ok)">"at least the F1 Setup procedure and the UE-context procedures you can see in the spec."</td>
+          <td style="color:var(--ok)">The same scope sentence, word for word.</td>
+          <td style="color:var(--fault)">"the f1 setup part" … "all of them, whatever you find" — and then "dont spend too much effort on the details", which contradicts the "all of them" before it.</td>
+        </tr>
+        <tr>
+          <td><b>how much of the idea survives the prompt</b></td>
+          <td style="color:var(--ok)"><b>The whole idea: who, what, why, in what format, checked how. Nothing the pipeline needs is left to the model's discretion.</b></td>
+          <td>A superset — the idea, plus the prompt author's own opinions about rigor. More instruction, not more idea.</td>
+          <td style="color:var(--fault)">The mood of the idea, none of its content — the model was handed the same spec feed and left to reconstruct the intent alone.</td>
+        </tr>
+      </tbody>
+    </table></div>
+    <p class="note"><b>Verdict: framing A expresses the developer's idea most fully.</b> It is the only
+    prompt of the three that states every component of the intent — persona, artifact, purpose, output
+    format, IE vocabulary, scope — so that the model is never guessing what "good" looks like. B
+    transmits a coherent but <em>different</em> idea (formal correctness the pipeline never reads); C
+    shows that a prompt can be the same length and carry almost none of the intent. Which prompt
+    <em>performed</em> best is a separate question — see the Conclusion.</p>
   </section>
 
   <hr class="rule">
