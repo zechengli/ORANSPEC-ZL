@@ -1009,6 +1009,60 @@ abbr{cursor:help}
         <tr><td><b>C</b> — the noob</td><td>nothing coherent — "give me everything"</td><td class="mono" style="white-space:nowrap">5 st · 7 ed</td><td class="mono">0 of 7</td><td class="num">2</td><td>no — kept, never run</td></tr>
       </tbody>
     </table></div>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">The prompts, sentence by sentence — which line caused what</h3>
+    <p class="note">Each row pairs one real sentence from the prompt (shown verbatim in Stage&nbsp;2)
+    with the behavior it produced in that framing's seed JSON, and the measured consequence.</p>
+    <div class="tw"><table>
+      <thead><tr><th>framing</th><th>the sentence</th><th>what the LLM did with it</th><th>measured consequence</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="2"><b>A</b> — faithful modeler</td>
+        <td class="mono" style="font-size:12px">"Model what the spec says the messages are, and tag each message's Information Elements with validity ('valid' / 'invalid' / 'missing') from the message-definition tables."</td>
+        <td>Authority = the spec itself. The LLM copied the spec's own shape: idle → pending → complete/failure, and every one of the 7 surviving edges carries direction plus a full IE list with validity tags.</td>
+        <td>Those validity tags are exactly the vocabulary the mutation pass flips; the kill itself (case&nbsp;31) needed only the sequence-level drop. 9&thinsp;233 raw chars — but it took 2 passes (pass&nbsp;1 truncated).</td></tr>
+        <tr>
+        <td class="mono" style="font-size:12px">contract: "…optional extra keys…"</td>
+        <td>The contract left the model free to volunteer extra structure (direction, procedure, notes) beyond the schema it was asked for — and it did.</td>
+        <td>Direction survived in A's seed because "what the spec says" includes the spec's Direction fields — but no sentence in the prompt <em>demanded</em> it. A got it right by persona, not by instruction.</td></tr>
+        <tr><td><b>B</b> — formal-methods engineer</td>
+        <td class="mono" style="font-size:12px">"For every transition be pedantic about: (1) message DIRECTION …, (2) IE PRESENCE …, (3) the precondition state. Include any direction/precondition information as explicit fields on each transition."</td>
+        <td>The LLM became an over-formalist: ~10 fields per edge (Sender, Receiver, Precondition, Effect, Signalling, SpecRef…), 7 parallel copies of F1_SETUP_RESPONSE across two (source, target) pairs, and failure split into two states (FAILURE_RESPONSE + TIME_WAIT_BACKOFF) — the most expert-like seed of the three.</td>
+        <td>22&thinsp;028 raw chars = 2.4× A's JSON for the same 7 surviving pairs, and the container's one-edge-per-pair rule deleted 6 of 13 edges (46%) at the first deterministic step. The pedantry lives in fields no pipeline code ever reads.</td></tr>
+        <tr><td rowspan="3"><b>C</b> — the noob</td>
+        <td class="mono" style="font-size:12px">"give me the states and the messages between them, all of them, whatever you find" + "dont spend too much effort on the details"</td>
+        <td>7 thin edges; message names with spaces, not UPPER_SNAKE; and a pseudo-transition "(local) Time To Wait IE present -> start" — a local timer dressed up as wire traffic.</td>
+        <td>0 of 7 edges carry IE lists, so downstream only drop-mutations were even possible. 100% conversion survival — survival of content nothing downstream can check.</td></tr>
+        <tr>
+        <td class="mono" style="font-size:12px">"i always mix up request and response lol"</td>
+        <td>The model did <em>not</em> mix them up: every sent_by / received_by pair is correct.</td>
+        <td>Correctness in fields the pipeline never reads is decorative — the model knew better than the prompt, and it still did not help.</td></tr>
+        <tr>
+        <td class="mono" style="font-size:12px">"maybe add the failure one too??"</td>
+        <td>C modeled F1_SETUP_FAILURE, plus a TIME_WAIT state.</td>
+        <td>The one explicit request in the noob's prompt is the one part of the seed that is reliably there.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 style="font-size:16px;margin:26px 0 2px">One small metric, and how it is judged</h3>
+    <div class="tw"><table>
+      <thead><tr><th>metric</th><th>how it's computed</th><th>A</th><th>B</th><th>C</th><th>winner</th></tr></thead>
+      <tbody>
+        <tr><td><b>discovery yield</b></td><td>CU07 cases ÷ output tokens × 10&thinsp;000</td><td class="num">0.65</td><td class="num">0.33</td><td class="num">1.01</td><td><b>C</b></td></tr>
+        <tr><td><b>conversion survival</b></td><td>edges the container keeps ÷ raw edges</td><td class="num">64%</td><td class="num">54%</td><td class="num">100%</td><td><b>C</b></td></tr>
+        <tr><td><b>seed auditability</b></td><td>surviving edges a reviewer can check against the spec (direction + IE list)</td><td class="num">100%</td><td class="num">100%</td><td class="num">0%</td><td><b>A = B</b></td></tr>
+        <tr><td><b>cost per surviving edge</b></td><td>output tokens ÷ surviving edges</td><td class="num">4&thinsp;385</td><td class="num">4&thinsp;361</td><td class="num">2&thinsp;846</td><td><b>C</b></td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Read the metric honestly and it crowns the noob: on discovery per token C wins clearly, and that is
+    not a bug in the metric — it is point&nbsp;3 below (for this one bug, the pipeline carries discovery, not the
+    prompt). What decides the contest is the <b>judging rule</b>, stated rather than implied:
+    <em>a prompt is worth what its seed is worth on the day the funnel comes back empty.</em> Discovery yield measures
+    a lucky campaign; auditability measures the seed you are left holding when nothing was found and the model must be
+    debugged and extended by hand. By that rule B loses twice — worst yield and worst survival, its precision already
+    deleted by the first deterministic step; C wins the day and nothing else; and A is the only framing that ties the
+    best discovery (2 cases, byte-identical sequences to C's) while remaining fully auditable — every edge traceable
+    to a spec clause.</p>
+
     <p class="lede" style="margin-top:22px"><b>1 — A models the protocol; the others model opinions about it.</b>
     A's prompt did the one job a seed model has: turn spec text into the milestone machine a conformance
     tester would draw — idle → pending → complete/failure, every direction tagged. It never mentions attack,
